@@ -1,0 +1,7 @@
+[
+  {
+    "path": "relative-binding-demo/",
+    "title": "Relative Binding Demo",
+    "description": "Relative binding and loading components at runtime."
+  }
+]

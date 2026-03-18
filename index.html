@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rive Lab — Demos & experiments</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0d0e12;
+      --surface: #16181e;
+      --border: #2a2d36;
+      --text: #e8eaef;
+      --muted: #8b909a;
+      --accent: #6c9eff;
+      --accent-dim: rgba(108, 158, 255, 0.15);
+    }
+
+    *, *::before, *::after { box-sizing: border-box; }
+    html { font-size: 16px; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Outfit', system-ui, sans-serif;
+      line-height: 1.5;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    .page {
+      max-width: 56rem;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 4rem;
+    }
+
+    header {
+      margin-bottom: 3rem;
+    }
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+      margin: 0 0 0.25rem;
+    }
+    .tagline {
+      color: var(--muted);
+      font-size: 1rem;
+      margin: 0;
+    }
+
+    .projects-section h2 {
+      font-size: 0.8125rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin: 0 0 1rem;
+    }
+
+    .project-list {
+      list-style: none;
+      padding: 0;
+      margin: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 0.75rem;
+    }
+    .project-card {
+      display: block;
+      padding: 1rem 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: inherit;
+      text-decoration: none;
+      transition: border-color 0.2s, background 0.2s;
+    }
+    .project-card:hover {
+      border-color: var(--accent);
+      background: var(--accent-dim);
+    }
+    .project-card strong {
+      font-size: 1rem;
+      font-weight: 600;
+    }
+    .project-card p {
+      margin: 0.25rem 0 0;
+      font-size: 0.875rem;
+      color: var(--muted);
+    }
+
+    footer {
+      margin-top: 3rem;
+      padding-top: 1.5rem;
+      border-top: 1px solid var(--border);
+      font-size: 0.8125rem;
+      color: var(--muted);
+    }
+    footer code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      background: var(--surface);
+      padding: 0.15em 0.4em;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <header>
+      <h1>Rive Lab</h1>
+      <p class="tagline">Demos and experiments with Rive's runtime features</p>
+    </header>
+
+    <section class="projects-section">
+      <h2>Projects</h2>
+      <ul class="project-list" id="projectList">
+        <!-- Populated by script from projects.json -->
+      </ul>
+    </section>
+
+    <footer>
+      <p>
+        To add a new project: add an entry to <code>projects.json</code>
+        (path, title, description).
+      </p>
+    </footer>
+  </div>
+
+  <script>
+    const list = document.getElementById('projectList');
+
+    function escapeHtml(s) {
+      const div = document.createElement('div');
+      div.textContent = s;
+      return div.innerHTML;
+    }
+
+    function renderProjects(projects) {
+      list.innerHTML = '';
+      projects.forEach((p) => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+          <a class="project-card" href="${escapeHtml(p.path)}">
+            <strong>${escapeHtml(p.title)}</strong>
+            ${p.description ? `<p>${escapeHtml(p.description)}</p>` : ''}
+          </a>
+        `;
+        list.appendChild(li);
+      });
+    }
+
+    fetch('projects.json')
+      .then((r) => r.json())
+      .then(renderProjects)
+      .catch((err) => {
+        list.innerHTML = '<li class="project-card" style="color: var(--muted);">Could not load projects.</li>';
+      });
+  </script>
+</body>
+</html>

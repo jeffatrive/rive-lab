@@ -8,6 +8,7 @@ async function main() {
   var barArtboard = null;
   var ringArtboard = null;
   var arcArtboard = null;
+  var waveArtboard = null;
   var swapableVMI = null; // SwapableVM instance for number property
 
 function attachChart() {
@@ -64,6 +65,15 @@ function attachChart() {
           if (chartArtboard && artboardProperty) artboardProperty.value = chartArtboard;
         });
       }
+      var waveBtn = document.getElementById('waveBtn');
+      if (waveBtn) {
+        waveBtn.addEventListener('click', function () {
+          chartArtboard = waveArtboard;
+          if (chartArtboard && artboardProperty) artboardProperty.value = chartArtboard;
+        });
+      }
+      // Apply initial chart (Bar) when main view is ready; no-op if components not loaded yet
+      attachChart();
     },
     onLoadError: function () {
       console.log('Main Rive file failed to load');
@@ -74,8 +84,8 @@ function attachChart() {
   var componentsFile = new rive.RiveFile({
     src: 'components.riv',
     onLoad: function () {
-      barArtboard = componentsFile.getBindableArtboard('Bar') || componentsFile.getArtboard('Bar');
-      ringArtboard = componentsFile.getBindableArtboard('Ring') || componentsFile.getArtboard('Ring');
+      barArtboard = componentsFile.getArtboard('Bar');
+      ringArtboard = componentsFile.getArtboard('Ring');
       chartArtboard = barArtboard;
       attachChart();
     },
@@ -88,8 +98,10 @@ function attachChart() {
   // Load arc.riv for Arc artboard (used by Arc button).
   var arcFile = new rive.RiveFile({
     src: 'arc.riv',
+    autoBind: true,
+    autoplay: true,
     onLoad: function () {
-      arcArtboard = arcFile.getBindableArtboard('Arc') || arcFile.getArtboard('Arc');
+      arcArtboard = arcFile.getArtboard('Arc');
       attachChart();
     },
     onLoadError: function () {
@@ -97,6 +109,21 @@ function attachChart() {
     },
   });
   arcFile.init();
+
+  // Load wave.riv for Wave artboard (used by Wave button).
+  var waveFile = new rive.RiveFile({
+    src: 'wave.riv',
+    onLoad: function () {
+     waveArtboard = waveFile.getArtboard('Wave');
+     const vmiWave = waveFile.viewModelInstance;
+   
+      attachChart();
+    },
+    onLoadError: function () {
+      console.warn('wave.riv failed to load');
+    },
+  });
+  waveFile.init();
 
   function resize() {
     if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas();

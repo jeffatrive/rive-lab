@@ -1,4 +1,7 @@
 :root {
+  /* the game is laid out for a phone: on a wider screen it keeps a phone's proportions (390 x 844), centred */
+  --frame-w: 100vw;
+  --frame-x: 0px;
   --bg: #0d0e12;
   --panel: rgba(22, 24, 30, 0.94);
   --border: rgba(255, 255, 255, 0.14);
@@ -25,10 +28,21 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
+@media (min-aspect-ratio: 3/4) {
+  :root {
+    --frame-w: min(100vw, calc(100dvh * 390 / 844));
+    --frame-x: calc((100vw - var(--frame-w)) / 2);
+  }
+  body { background: radial-gradient(ellipse at 50% 40%, #2a2f5a 0%, #1e2142 45%, #0d0e12 100%); }
+  #game { box-shadow: 0 0 60px rgba(0, 0, 0, 0.55); }
+}
+
 #game {
   position: fixed;
   inset: 0;
-  width: 100vw;
+  left: var(--frame-x);
+  right: auto;
+  width: var(--frame-w);
   height: 100vh;
   height: 100dvh;
   display: block;
@@ -67,7 +81,7 @@ html, body {
    (shown on the title and map screens only, see app.js) */
 #menu-button {
   position: fixed;
-  left: max(4px, env(safe-area-inset-left));
+  left: calc(var(--frame-x) + max(4px, env(safe-area-inset-left)));
   bottom: 4px;
   width: 28px;
   height: 28px;
@@ -95,7 +109,7 @@ html, body {
 
 #menu {
   position: fixed;
-  left: max(4px, env(safe-area-inset-left));
+  left: calc(var(--frame-x) + max(4px, env(safe-area-inset-left)));
   bottom: 40px;
   min-width: 190px;
   padding: 6px;

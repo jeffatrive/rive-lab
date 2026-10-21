@@ -44,7 +44,7 @@ Options:
 
 You don't need to commit anything for a game update.
 
-**The page changed** (`index.html`, `app.js`, `style.css`, icons)? Commit those files and push to `main`. The push publishes the change on its own. Commit only the files you mean to: rive-lab has lots of folders that aren't in git, so use `git add smashabout/app.js` rather than `git add .`.
+**The page changed** (`index.html`, `app.js`, `style.css`, icons)? Commit those files and push to `main`. When you change `app.js` or `style.css`, bump the `?v=` number on their links in `index.html` (e.g. `app.js?v=3`), so visitors get the new file at once instead of waiting out GitHub's 10-minute cache. The push publishes the change on its own. Commit only the files you mean to: rive-lab has lots of folders that aren't in git, so use `git add smashabout/app.js` rather than `git add .`.
 
 **New app icon?** The icons come from the game's 3-D art. Regenerate them from `kaiju/game3d`:
 

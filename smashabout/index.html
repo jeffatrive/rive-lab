@@ -9,14 +9,15 @@
   <!-- "Add to Home Screen" on iPhone: full screen, own icon -->
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <!-- an opaque status bar: the game starts below it (a translucent one let iOS blur the game under the clock) -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="black">
   <meta name="apple-mobile-web-app-title" content="Smashabout">
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
   <!-- start downloading the game file while the runtime loads -->
   <link rel="preload" href="game.riv" as="fetch" crossorigin>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=2">
 </head>
 <body>
   <canvas id="game" tabindex="-1"></canvas>
@@ -50,6 +51,6 @@
 
   <!-- Rive's web runtime, pinned to an exact version (see PUBLISHING.md before changing it) -->
   <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2@2.45.0/rive.js"></script>
-  <script src="app.js"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

@@ -157,6 +157,13 @@
       return;
     }
     var file = new rive.RiveFile({ src: GAME_FILE, enableGPUCanvas: true });
+    // A phone (or a tall window) gets Fit.Layout: the game lays itself out to fill the screen. A wider screen shows a
+    // phone-shaped frame (style.css), and the game is drawn at its designed 390 x 844 and scaled to fit it
+    // (Fit.Contain), so a small window shrinks it instead of cramming its layout.
+    var framed = window.matchMedia('(min-aspect-ratio: 3/4)');
+    function gameLayout() {
+      return new rive.Layout({ fit: framed.matches ? rive.Fit.Contain : rive.Fit.Layout, alignment: rive.Alignment.Center });
+    }
     file.init().then(function () {
       var instance = new rive.Rive({
         riveFile: file,
@@ -166,7 +173,7 @@
         enableGPUCanvas: true,
         enableMultiTouch: true,
         stateMachine: firstStateMachine(file),
-        layout: new rive.Layout({ fit: rive.Fit.Layout, alignment: rive.Alignment.Center }),
+        layout: gameLayout(),
         onLoad: function () {
           riveInstance = instance;
           if (muted) instance.volume = 0;
@@ -183,6 +190,10 @@
       var resize = function () {
         if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas();
       };
+      var relayout = function () {
+        if (riveInstance) { riveInstance.layout = gameLayout(); resize(); }
+      };
+      if (framed.addEventListener) framed.addEventListener('change', relayout);
       if (typeof ResizeObserver === 'function') {
         new ResizeObserver(resize).observe(canvas);
       } else {

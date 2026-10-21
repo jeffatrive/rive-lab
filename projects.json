@@ -3,5 +3,10 @@
     "path": "relative-binding-demo/",
     "title": "Relative Binding Demo",
     "description": "Relative binding and loading components at runtime."
+  },
+  {
+    "path": "smashabout/",
+    "title": "Smashabout",
+    "description": "A kaiju roguelike in Rive: scripted 3-D, saves your progress in the browser."
   }
 ]

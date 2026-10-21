@@ -1,3 +1,6 @@
+# Publishes the whole repo to GitHub Pages: https://jeffatrive.github.io/rive-lab/
+# Runs on every push to main, and on demand (Actions tab > "Deploy static content to Pages" > Run workflow,
+# or `gh workflow run static.yml`). Settings > Pages > Source must be "GitHub Actions".
 name: Deploy static content to Pages
 
 on:
@@ -10,6 +13,7 @@ permissions:
   pages: write
   id-token: write
 
+# one deploy at a time; a newer one waits for the running one to finish
 concurrency:
   group: "pages"
   cancel-in-progress: false
@@ -25,11 +29,21 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      # Smashabout's game file is too big to keep in git history, so it lives on the
+      # `smashabout-game` release (smashabout/publish.sh uploads it) and is copied in here.
+      - name: Fetch the Smashabout game file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download smashabout-game --repo "$GITHUB_REPOSITORY" --pattern game.riv --dir smashabout --clobber; then
+            ls -l smashabout/game.riv
+          else
+            echo "::warning::No game.riv on the smashabout-game release: the Smashabout page won't load its game. Run smashabout/publish.sh."
+          fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: '.'
-          overwrite: true
       - name: Deploy to GitHub Pages
         id: deployment
         uses: actions/deploy-pages@v5

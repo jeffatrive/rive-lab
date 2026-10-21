@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Smashabout</title>
+  <meta name="description" content="Smashabout: a kaiju roguelike made with Rive.">
+  <meta name="theme-color" content="#0d0e12">
+  <!-- "Add to Home Screen" on iPhone: full screen, own icon -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Smashabout">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <!-- start downloading the game file while the runtime loads -->
+  <link rel="preload" href="game.riv" as="fetch" crossorigin>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <canvas id="game" tabindex="-1"></canvas>
+
+  <div id="status" role="status" aria-live="polite">
+    <div class="spinner"></div>
+    <p class="message">Loading Smashabout…</p>
+  </div>
+
+  <button id="menu-button" type="button" aria-label="Save menu" aria-haspopup="true" aria-expanded="false">
+    <span></span><span></span><span></span>
+  </button>
+  <div id="menu" role="menu" hidden>
+    <button type="button" role="menuitem" data-action="copy">Copy my save</button>
+    <button type="button" role="menuitem" data-action="paste">Paste a save</button>
+    <p class="note" id="menu-note"></p>
+  </div>
+
+  <dialog id="save-dialog">
+    <form method="dialog">
+      <h2 id="save-dialog-title">Paste a save</h2>
+      <p id="save-dialog-help">Paste the text you copied on your other device. It replaces the progress on this one.</p>
+      <textarea id="save-text" rows="6" spellcheck="false" autocapitalize="off" autocomplete="off"></textarea>
+      <p class="error" id="save-error" role="alert"></p>
+      <div class="buttons">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="ok" id="save-ok">Load this save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Rive's web runtime, pinned to an exact version (see PUBLISHING.md before changing it) -->
+  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2@2.45.0/rive.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

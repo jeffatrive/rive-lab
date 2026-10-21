@@ -110,6 +110,14 @@
   // The game guesses room for the iPhone's clock and home indicator on a phone-tall screen (the native app draws
   // under them). This page knows the real insets: none at the top below Safari's opaque status bar, the home
   // indicator at the bottom, none at all in the desktop frame. Read from CSS env() and handed to the game.
+  // At most 2x pixel density (Jeff 2026-10-21: the page reloaded mid-boss, most likely iOS killing it for memory).
+  // An iPhone is 3x: a 1170 x 2532 drawing surface plus anti-aliasing and the 3-D buffers. 2x is 56% fewer pixels and
+  // hard to tell apart on a phone.
+  var MAX_PIXEL_RATIO = 2;
+  function pixelRatio() {
+    return Math.min(MAX_PIXEL_RATIO, window.devicePixelRatio || 1);
+  }
+
   function connectInsets(instance) {
     var vm = instance.viewModelInstance;
     var top = vm && vm.number('hostSafeTop');
@@ -202,7 +210,7 @@
           connectSave(instance);
           connectInsets(instance);
           connectScreen(instance);
-          instance.resizeDrawingSurfaceToCanvas();
+          instance.resizeDrawingSurfaceToCanvas(pixelRatio());
           hideStatus();
           canvas.focus({ preventScroll: true });
         },
@@ -211,7 +219,7 @@
         }
       });
       var resize = function () {
-        if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas();
+        if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas(pixelRatio());
       };
       var relayout = function () {
         if (riveInstance) { riveInstance.layout = gameLayout(); resize(); }

@@ -107,6 +107,28 @@
     return name;
   }
 
+  // The game guesses room for the iPhone's clock and home indicator on a phone-tall screen (the native app draws
+  // under them). This page knows the real insets: none at the top below Safari's opaque status bar, the home
+  // indicator at the bottom, none at all in the desktop frame. Read from CSS env() and handed to the game.
+  function connectInsets(instance) {
+    var vm = instance.viewModelInstance;
+    var top = vm && vm.number('hostSafeTop');
+    var bottom = vm && vm.number('hostSafeBottom');
+    if (!top || !bottom) return;
+    var probe = document.createElement('div');
+    probe.style.cssText = 'position:fixed;visibility:hidden;pointer-events:none;' +
+      'padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)';
+    document.body.appendChild(probe);
+    var apply = function () {
+      var cs = getComputedStyle(probe);
+      var framed = window.matchMedia('(min-aspect-ratio: 3/4)').matches;
+      top.value = framed ? 0 : (parseFloat(cs.paddingTop) || 0);
+      bottom.value = framed ? 0 : (parseFloat(cs.paddingBottom) || 0);
+    };
+    apply();
+    window.addEventListener('resize', apply);
+  }
+
   function connectSave(instance) {
     var vm = instance.viewModelInstance;
     saveProp = vm ? vm.string('save') : null;
@@ -178,6 +200,7 @@
           riveInstance = instance;
           if (muted) instance.volume = 0;
           connectSave(instance);
+          connectInsets(instance);
           connectScreen(instance);
           instance.resizeDrawingSurfaceToCanvas();
           hideStatus();

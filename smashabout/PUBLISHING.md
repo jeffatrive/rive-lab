@@ -86,3 +86,9 @@ Then copy `build/icons/apple-touch-icon.png`, `icon-192.png` and `icon-512.png` 
   - The workflow was added on the GitHub website, so your local `main` didn't have it. That's why the folder looked empty on the Mac.
   - The "errored" status the Pages API still reports is left over from the old branch build.
   - Most rive-lab folders were never committed, so they aren't on the site. Only what's in git and pushed gets published.
+
+## Traffic
+
+Cloudflare Web Analytics (Jeff's Cloudflare account, site `jeffatrive.github.io`; filter by the path
+`/rive-lab/smashabout/`). The beacon script is at the end of index.html. Page views only (visits, referrers,
+countries, devices, load speed), no cookies and no custom events; ad blockers hide some visits.

@@ -7,7 +7,8 @@
 // `save` from localStorage before the game's first frame, and copies every
 // change back to localStorage.
 //
-// Page options (add to the URL): ?mute=1 silences the game.
+// Page options (add to the URL): ?mute=1 silences the game. ?debug=1 shows the reload watch (it stays on, even from
+// the Home Screen icon, until ?debug=0); ?debug=reset clears its counts.
 (function () {
   'use strict';
 
@@ -107,9 +108,28 @@
     return name;
   }
 
+  // Every window gets Fit.Layout: the game lays itself out to fill it (2026-10-21: the desktop phone frame is gone; the
+  // HUD, the bottom bar and the menus stop at a max width, the board takes the rest). A big window also scales the UI up
+  // (the Layout's layoutScaleFactor: the game is laid out in a window that many times smaller, then drawn to fill it), so
+  // text and buttons aren't phone-sized in a lot of space: the window's width over 600 or its height over 760, whichever
+  // is smaller, from 1 to 1.5 (a 1080p desktop about 1.27, a portrait iPad 1.37, a laptop's short window 1). A phone
+  // stays at 1; a bigger window keeps at least 600 x 760 points to lay out in, about a phone's height, so the menus
+  // fit without scrolling and the board keeps its room under the HUD. It changes the layout's size only, not the pixels
+  // drawn (the canvas and the 2x cap).
+  var MIN_W = 600, MIN_H = 760, MAX_SCALE = 1.5;
+  function uiScale() {
+    var s = Math.min(window.innerWidth / MIN_W, window.innerHeight / MIN_H);
+    return Math.round(Math.max(1, Math.min(MAX_SCALE, s)) * 100) / 100;
+  }
+
+  function gameLayout() {
+    return new rive.Layout({ fit: rive.Fit.Layout, alignment: rive.Alignment.Center, layoutScaleFactor: uiScale() });
+  }
+
   // The game guesses room for the iPhone's clock and home indicator on a phone-tall screen (the native app draws
   // under them). This page knows the real insets: none at the top below Safari's opaque status bar, the home
-  // indicator at the bottom, none at all in the desktop frame. Read from CSS env() and handed to the game.
+  // indicator at the bottom, none on a desktop. Read from CSS env() and handed to the game (in its points: CSS pixels
+  // over the UI scale).
   // At most 2x pixel density (Jeff 2026-10-21: the page reloaded mid-boss, most likely iOS killing it for memory).
   // An iPhone is 3x: a 1170 x 2532 drawing surface plus anti-aliasing and the 3-D buffers. 2x is 56% fewer pixels and
   // hard to tell apart on a phone.
@@ -129,9 +149,9 @@
     document.body.appendChild(probe);
     var apply = function () {
       var cs = getComputedStyle(probe);
-      var framed = window.matchMedia('(min-aspect-ratio: 3/4)').matches;
-      top.value = framed ? 0 : (parseFloat(cs.paddingTop) || 0);
-      bottom.value = framed ? 0 : (parseFloat(cs.paddingBottom) || 0);
+      var scale = uiScale();
+      top.value = (parseFloat(cs.paddingTop) || 0) / scale;
+      bottom.value = (parseFloat(cs.paddingBottom) || 0) / scale;
     };
     apply();
     window.addEventListener('resize', apply);
@@ -187,13 +207,6 @@
       return;
     }
     var file = new rive.RiveFile({ src: GAME_FILE, enableGPUCanvas: true });
-    // A phone (or a tall window) gets Fit.Layout: the game lays itself out to fill the screen. A wider screen shows a
-    // phone-shaped frame (style.css), and the game is drawn at its designed 390 x 844 and scaled to fit it
-    // (Fit.Contain), so a small window shrinks it instead of cramming its layout.
-    var framed = window.matchMedia('(min-aspect-ratio: 3/4)');
-    function gameLayout() {
-      return new rive.Layout({ fit: framed.matches ? rive.Fit.Contain : rive.Fit.Layout, alignment: rive.Alignment.Center });
-    }
     file.init().then(function () {
       var instance = new rive.Rive({
         riveFile: file,
@@ -218,13 +231,13 @@
           showStatus('Smashabout couldn’t start in this browser.', true);
         }
       });
+      // (a new UI scale when the window crosses a size: a new Layout, then the drawing surface, which resizes the
+      // artboard to the canvas over the scale)
       var resize = function () {
-        if (riveInstance) riveInstance.resizeDrawingSurfaceToCanvas(pixelRatio());
+        if (!riveInstance) return;
+        if (riveInstance.layout.layoutScaleFactor !== uiScale()) riveInstance.layout = gameLayout();
+        riveInstance.resizeDrawingSurfaceToCanvas(pixelRatio());
       };
-      var relayout = function () {
-        if (riveInstance) { riveInstance.layout = gameLayout(); resize(); }
-      };
-      if (framed.addEventListener) framed.addEventListener('change', relayout);
       if (typeof ResizeObserver === 'function') {
         new ResizeObserver(resize).observe(canvas);
       } else {
@@ -327,11 +340,105 @@
     }
     dialog.close('ok');
     // Reload so the game starts fresh from the pasted save (it reads it before its first frame).
+    try { window.sessionStorage.setItem(EXPECT_KEY, '1'); } catch (err) { /* storage blocked */ }
     window.location.reload();
   });
+
+  // ------------------------------------------------------------ reload watch
+  // (Jeff 2026-10-22: make sure a phone's browser never reloads the game on its own.) iOS kills a heavy tab's process
+  // when memory runs low and reloads the page when you come back to it. The page can't see that happen, only the start
+  // that follows, so each visit keeps a heartbeat and marks a clean end (pagehide): a start whose previous visit ended
+  // without one is counted as unclean. That also catches quitting the browser app; "hidden" says the visit was in the
+  // background when it stopped, the usual sign of a memory kill. Kept in localStorage; ?debug=1 shows it.
+  var DIAG_KEY = 'smashabout.diag';
+  var DEBUG_KEY = 'smashabout.debug';
+  var EXPECT_KEY = 'smashabout.expectReload'; // sessionStorage: a reload the page asked for (pasting a save)
+  var diag = { loads: 0, reloads: 0, unclean: 0, log: [], live: null };
+  var debugBox = null;
+
+  function readDiag() {
+    try {
+      var d = JSON.parse(window.localStorage.getItem(DIAG_KEY) || 'null');
+      if (d && typeof d === 'object') diag = d;
+    } catch (e) { /* storage blocked or bad JSON: start over */ }
+    diag.log = diag.log || [];
+  }
+
+  function writeDiag() {
+    try { window.localStorage.setItem(DIAG_KEY, JSON.stringify(diag)); } catch (e) { /* storage blocked */ }
+  }
+
+  function minutes(ms) {
+    var s = Math.max(0, Math.round(ms / 1000));
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function watchReloads() {
+    var dbg = params.get('debug');
+    try {
+      if (dbg === '1') window.localStorage.setItem(DEBUG_KEY, '1');
+      else if (dbg === '0') window.localStorage.removeItem(DEBUG_KEY);
+    } catch (e) { /* storage blocked */ }
+    readDiag();
+    if (dbg === 'reset') diag = { loads: 0, reloads: 0, unclean: 0, log: [], live: null };
+    var now = Date.now();
+    var expected = false;
+    try {
+      expected = window.sessionStorage.getItem(EXPECT_KEY) === '1';
+      window.sessionStorage.removeItem(EXPECT_KEY);
+    } catch (e) { /* storage blocked */ }
+    var nav = performance.getEntriesByType && performance.getEntriesByType('navigation')[0];
+    var prev = diag.live;
+    if (prev && !prev.clean && !expected) {
+      diag.unclean += 1;
+      diag.log.unshift({ t: now, kind: 'unclean', hidden: !!prev.hidden, up: prev.beat - prev.start, gap: now - prev.beat });
+    }
+    if (nav && nav.type === 'reload' && !expected) {
+      diag.reloads += 1;
+      diag.log.unshift({ t: now, kind: 'reload' });
+    }
+    diag.loads += 1;
+    diag.log = diag.log.slice(0, 12);
+    diag.live = { start: now, beat: now, hidden: document.hidden, clean: false };
+    writeDiag();
+
+    var beat = function () {
+      diag.live.beat = Date.now();
+      diag.live.hidden = document.hidden;
+      writeDiag();
+    };
+    setInterval(beat, 5000);
+    document.addEventListener('visibilitychange', beat);
+    window.addEventListener('pagehide', function () { diag.live.clean = true; beat(); });
+    // back from the browser's page cache: the same visit carries on
+    window.addEventListener('pageshow', function (e) { if (e.persisted) { diag.live.clean = false; beat(); } });
+
+    var on = false;
+    try { on = window.localStorage.getItem(DEBUG_KEY) === '1'; } catch (e) { /* storage blocked */ }
+    if (!on) return;
+    debugBox = document.createElement('div');
+    debugBox.id = 'diag';
+    debugBox.setAttribute('aria-hidden', 'true');
+    document.body.appendChild(debugBox);
+    var show = function () {
+      var last = diag.log[0];
+      var lines = ['loads ' + diag.loads + ' · reloads ' + diag.reloads + ' · unclean ' + diag.unclean +
+                   ' · up ' + minutes(Date.now() - diag.live.start)];
+      if (last) {
+        var when = new Date(last.t).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        lines.push('last: ' + last.kind + ' ' + when + (last.kind === 'unclean'
+          ? (last.hidden ? ', hidden' : ', on screen') + ', after ' + minutes(last.up) : ''));
+      }
+      if (performance.memory) lines.push('JS heap ' + Math.round(performance.memory.usedJSHeapSize / 1048576) + ' MB');
+      debugBox.textContent = lines.join('\n');
+    };
+    show();
+    setInterval(show, 1000);
+  }
 
   // iOS Safari: no pinch-zoom of the page.
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
 
+  watchReloads();
   start();
 })();

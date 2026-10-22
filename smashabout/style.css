@@ -1,7 +1,4 @@
 :root {
-  /* the game is laid out for a phone: on a wider screen it keeps a phone's proportions (390 x 844), centred */
-  --frame-w: 100vw;
-  --frame-x: 0px;
   --bg: #0d0e12;
   --panel: rgba(22, 24, 30, 0.94);
   --border: rgba(255, 255, 255, 0.14);
@@ -28,21 +25,11 @@ html, body {
   -webkit-tap-highlight-color: transparent;
 }
 
-@media (min-aspect-ratio: 3/4) {
-  :root {
-    --frame-w: min(100vw, calc(100dvh * 390 / 844));
-    --frame-x: calc((100vw - var(--frame-w)) / 2);
-  }
-  body { background: radial-gradient(ellipse at 50% 40%, #2a2f5a 0%, #1e2142 45%, #0d0e12 100%); }
-  #game { box-shadow: 0 0 60px rgba(0, 0, 0, 0.55); }
-}
-
+/* every window gets the game laid out to fill it (Fit.Layout, app.js): no phone frame on a wide one (2026-10-21) */
 #game {
   position: fixed;
   inset: 0;
-  left: var(--frame-x);
-  right: auto;
-  width: var(--frame-w);
+  width: 100vw;
   height: 100vh;
   height: 100dvh;
   display: block;
@@ -81,7 +68,7 @@ html, body {
    (shown on the title and map screens only, see app.js) */
 #menu-button {
   position: fixed;
-  left: calc(var(--frame-x) + max(4px, env(safe-area-inset-left)));
+  left: max(4px, env(safe-area-inset-left));
   bottom: 4px;
   width: 28px;
   height: 28px;
@@ -109,7 +96,7 @@ html, body {
 
 #menu {
   position: fixed;
-  left: calc(var(--frame-x) + max(4px, env(safe-area-inset-left)));
+  left: max(4px, env(safe-area-inset-left));
   bottom: 40px;
   min-width: 190px;
   padding: 6px;
@@ -173,3 +160,34 @@ dialog .buttons button {
   cursor: pointer;
 }
 dialog .buttons button[value="ok"] { background: var(--accent); border-color: var(--accent); color: #1a1a1a; font-weight: 600; }
+
+/* a phone held sideways: the game is portrait only (Jeff 2026-10-21), so a card over it asks to turn it back.
+   Landscape and short means a phone; a touch screen with no hover keeps a short desktop window out of it */
+#rotate {
+  position: fixed;
+  inset: 0;
+  display: none;
+  place-content: center;
+  justify-items: center;
+  gap: 14px;
+  padding: 24px;
+  text-align: center;
+  background: var(--bg);
+  z-index: 5;
+}
+#rotate svg { width: 56px; height: 56px; color: var(--accent); animation: tilt 2.4s ease-in-out infinite; }
+#rotate p { margin: 0; font-size: 18px; font-weight: 600; }
+@keyframes tilt { 0%, 30% { transform: rotate(-90deg); } 60%, 100% { transform: rotate(0deg); } }
+@media (orientation: landscape) and (max-height: 500px) and (hover: none) and (pointer: coarse) {
+  #rotate { display: grid; }
+}
+@media (prefers-reduced-motion: reduce) {
+  #rotate svg { animation: none; }
+}
+
+/* The reload watch (?debug=1): a small readout in the bottom-left corner, over the game, ignoring taps. */
+#diag {
+  position: fixed; left: max(6px, env(safe-area-inset-left, 0px)); bottom: calc(6px + env(safe-area-inset-bottom, 0px));
+  z-index: 50; pointer-events: none; white-space: pre; font: 600 10px/1.35 ui-monospace, Menlo, monospace;
+  color: #fff; background: rgba(20, 24, 50, 0.72); border-radius: 6px; padding: 4px 7px;
+}

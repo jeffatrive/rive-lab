@@ -7,8 +7,9 @@
 // `save` from localStorage before the game's first frame, and copies every
 // change back to localStorage.
 //
-// Page options (add to the URL): ?mute=1 silences the game. ?debug=1 shows the reload watch (it stays on, even from
-// the Home Screen icon, until ?debug=0); ?debug=reset clears its counts.
+// Page options (add to the URL): ?mute=1 silences the game. ?debug=1 shows the reload watch (it stays on until
+// ?debug=0); ?debug=reset clears its counts. The menu's Show/Hide reload watch does the same from inside the page,
+// which is the only way in a Home Screen web app (it opens at ./ with its own storage).
 (function () {
   'use strict';
 
@@ -315,6 +316,9 @@
     } else if (action === 'paste') {
       setMenu(false);
       openDialog('paste', '');
+    } else if (action === 'watch') {
+      setWatch(!debugBox);
+      setMenu(false);
     }
   });
 
@@ -415,7 +419,25 @@
 
     var on = false;
     try { on = window.localStorage.getItem(DEBUG_KEY) === '1'; } catch (e) { /* storage blocked */ }
-    if (!on) return;
+    setWatch(on);
+  }
+
+  // The readout on or off (remembered), from ?debug= or the menu.
+  var watchTimer = null;
+  function setWatch(on) {
+    try {
+      if (on) window.localStorage.setItem(DEBUG_KEY, '1');
+      else window.localStorage.removeItem(DEBUG_KEY);
+    } catch (e) { /* storage blocked */ }
+    var toggle = document.getElementById('watch-toggle');
+    if (toggle) toggle.textContent = on ? 'Hide reload watch' : 'Show reload watch';
+    if (!on) {
+      if (debugBox) debugBox.remove();
+      debugBox = null;
+      clearInterval(watchTimer);
+      return;
+    }
+    if (debugBox) return;
     debugBox = document.createElement('div');
     debugBox.id = 'diag';
     debugBox.setAttribute('aria-hidden', 'true');
@@ -433,7 +455,7 @@
       debugBox.textContent = lines.join('\n');
     };
     show();
-    setInterval(show, 1000);
+    watchTimer = setInterval(show, 1000);
   }
 
   // iOS Safari: no pinch-zoom of the page.

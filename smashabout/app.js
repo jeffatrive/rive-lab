@@ -14,6 +14,10 @@
   'use strict';
 
   var GAME_FILE = 'game.riv';
+  // A copy of the page served from the repo as it is (Jeff's Cloudflare worker, 2026-10-22) has no game.riv: it's not in
+  // git, the GitHub Pages workflow fetches it from the release. Such a copy plays the GitHub Pages one, which allows
+  // cross-site loads (Access-Control-Allow-Origin: *), so publish.sh still updates both.
+  var GAME_FALLBACK = 'https://jeffatrive.github.io/rive-lab/smashabout/game.riv';
   var SAVE_KEY = 'smashabout.save';
   var BACKUP_KEY = 'smashabout.save.beforePaste'; // the save a "Paste a save" replaced, just in case
   // The newest profile version this page knows (P.VERSION in game3d/profile.luau).
@@ -198,6 +202,19 @@
     update();
   }
 
+  // The game file's bytes: this page's own copy, else the GitHub Pages one.
+  function loadGameFile() {
+    var get = function (url) {
+      return fetch(url).then(function (r) {
+        if (!r.ok) throw new Error(url + ': ' + r.status);
+        return r.arrayBuffer();
+      });
+    };
+    return get(GAME_FILE).catch(function () {
+      return location.href.indexOf(GAME_FALLBACK.replace('game.riv', '')) === 0 ? Promise.reject() : get(GAME_FALLBACK);
+    });
+  }
+
   function start() {
     if (typeof rive === 'undefined') {
       showStatus('The Rive player didn’t load. Check your connection and reload.', true);
@@ -207,8 +224,11 @@
       showStatus('This browser can’t run Smashabout (it needs WebGL 2). Try an up-to-date Safari, Chrome or Firefox.', true);
       return;
     }
-    var file = new rive.RiveFile({ src: GAME_FILE, enableGPUCanvas: true });
-    file.init().then(function () {
+    var file = null;
+    loadGameFile().then(function (buffer) {
+      file = new rive.RiveFile({ buffer: buffer, enableGPUCanvas: true });
+      return file.init();
+    }).then(function () {
       var instance = new rive.Rive({
         riveFile: file,
         canvas: canvas,

@@ -10,6 +10,8 @@
 // Page options (add to the URL): ?mute=1 silences the game. ?debug=1 shows the reload watch (it stays on until
 // ?debug=0); ?debug=reset clears its counts. The menu's Show/Hide reload watch does the same from inside the page,
 // which is the only way in a Home Screen web app (it opens at ./ with its own storage).
+// For testing the loading animation (a local download is instant): ?loaderdemo=1 stretches the reported download over
+// about 6 s; ?loaderdemo=nolength does the same as if the server sent no size; ?loaderdemo=fail ends in the error.
 (function () {
   'use strict';
 
@@ -18,6 +20,8 @@
   // git, the GitHub Pages workflow fetches it from the release. Such a copy plays the GitHub Pages one, which allows
   // cross-site loads (Access-Control-Allow-Origin: *), so publish.sh still updates both.
   var GAME_FALLBACK = 'https://jeffatrive.github.io/rive-lab/smashabout/game.riv';
+  // Lars stomping a row of buildings while game.riv downloads (kaiju/loader: a few KB, no scripts)
+  var LOADER_FILE = 'loader.riv';
   var SAVE_KEY = 'smashabout.save';
   var BACKUP_KEY = 'smashabout.save.beforePaste'; // the save a "Paste a save" replaced, just in case
   // The newest profile version this page knows (P.VERSION in game3d/profile.luau).
@@ -26,9 +30,12 @@
 
   var params = new URLSearchParams(window.location.search);
   var muted = params.get('mute') === '1';
+  var demo = params.get('loaderdemo'); // '1', 'nolength' or 'fail'; nothing without it
+  var DEMO_MS = 6000;
 
   var canvas = document.getElementById('game');
   var statusBox = document.getElementById('status');
+  var loaderCanvas = document.getElementById('loader');
   var menuButton = document.getElementById('menu-button');
   var menu = document.getElementById('menu');
   var menuNote = document.getElementById('menu-note');
@@ -85,6 +92,7 @@
   // ------------------------------------------------------------ status
 
   function showStatus(message, isError) {
+    if (isError) stopLoader();
     statusBox.hidden = false;
     statusBox.classList.toggle('error', !!isError);
     statusBox.querySelector('.message').textContent = message;
@@ -202,16 +210,157 @@
     update();
   }
 
+  // ------------------------------------------------------------ the download and the loading animation
+  // While game.riv downloads, loader.riv plays over the title: Lars walks along a row of buildings, each crumbling as he
+  // reaches it, so the row is the progress bar. The page streams the download and writes the percentage into the
+  // loader's view model: `progress` (0-100) and `known` (false when the server sends no size: the readout then says
+  // LOADING and the percentage only creeps towards 90). At 100 Lars does a last big stomp while the game starts.
+
+  var download = { loaded: 0, total: 0, done: false, started: 0 };
+  var loader = { rive: null, progress: null, known: null, fullAt: 0, timer: null };
+  var loadingOver = false; // the game started or failed: the loader is no longer wanted
+  var FINAL_STOMP_MS = 750; // the loader's last stomp lands about this long after it reaches 100 (Lars Final)
+
+  // How far along to show, 0-100. ?loaderdemo stretches the reported part over DEMO_MS.
+  function shownProgress() {
+    if (download.done) return 100;
+    var elapsed = performance.now() - download.started;
+    var p;
+    if (download.total > 0 && demo !== 'nolength') {
+      p = Math.min(99, download.loaded / download.total * 100); // 100 is for when it's really in
+    } else {
+      p = 90 * (1 - Math.exp(-elapsed / (demo ? DEMO_MS / 2 : 8000))); // no size: creep, never claim the end
+    }
+    return demo ? Math.min(p, 100 * elapsed / DEMO_MS) : p;
+  }
+
+  function showProgress() {
+    if (!loader.rive) return;
+    loader.known.value = download.done || (download.total > 0 && demo !== 'nolength');
+    var p = shownProgress();
+    if (p >= 100 && !loader.fullAt) loader.fullAt = performance.now();
+    loader.progress.value = p;
+  }
+
+  function startLoader() {
+    fetch(LOADER_FILE).then(function (r) {
+      if (!r.ok) throw new Error(LOADER_FILE + ': ' + r.status);
+      return r.arrayBuffer();
+    }).then(function (buffer) {
+      // the game's bytes already in (a cached visit): straight to the game, no animation
+      if (loadingOver || download.done) return;
+      var instance = new rive.Rive({
+        buffer: buffer,
+        canvas: loaderCanvas,
+        autoplay: true,
+        autoBind: true,
+        stateMachine: 'Loading',
+        layout: new rive.Layout({ fit: rive.Fit.Contain, alignment: rive.Alignment.Center }),
+        onLoad: function () {
+          var vm = instance.viewModelInstance;
+          if (loadingOver || download.done || !vm) {
+            instance.cleanup();
+            return;
+          }
+          loader.rive = instance;
+          loader.progress = vm.number('progress');
+          loader.known = vm.boolean('known');
+          instance.resizeDrawingSurfaceToCanvas(pixelRatio());
+          showProgress();
+          // the creep and the demo move without new bytes, so keep writing it
+          loader.timer = setInterval(showProgress, 100);
+          loaderCanvas.classList.add('on');
+          window.addEventListener('resize', function () {
+            if (loader.rive) loader.rive.resizeDrawingSurfaceToCanvas(pixelRatio());
+          });
+        }
+      });
+    }).catch(function (e) {
+      console.warn('Smashabout: no loading animation', e); // the title alone will do
+    });
+  }
+
+  function stopLoader() {
+    loadingOver = true;
+    clearInterval(loader.timer);
+    if (loader.rive) loader.rive.cleanup();
+    loader.rive = null;
+    loaderCanvas.classList.remove('on');
+  }
+
+  // The game is up: let the loader finish its last stomp, then fade the loading screen out.
+  function finishLoading() {
+    download.done = true;
+    showProgress();
+    var wait = loader.rive ? Math.max(0, loader.fullAt + FINAL_STOMP_MS - performance.now()) : 0;
+    setTimeout(function () {
+      statusBox.classList.add('leaving');
+      setTimeout(function () {
+        hideStatus();
+        statusBox.classList.remove('leaving');
+        stopLoader();
+      }, 300);
+    }, wait);
+  }
+
+  // A response's bytes, counting them as they arrive (into one buffer when the size is known, so an 11 MB file isn't
+  // held twice).
+  function readCounting(response) {
+    var total = parseInt(response.headers.get('Content-Length'), 10) || 0;
+    // a compressed response's Content-Length is the compressed size, not the bytes read
+    if (response.headers.get('Content-Encoding')) total = 0;
+    download.loaded = 0;
+    download.total = total;
+    if (!response.body || !response.body.getReader) return response.arrayBuffer();
+    var reader = response.body.getReader();
+    var whole = total ? new Uint8Array(total) : null;
+    var chunks = [];
+    var pump = function () {
+      return reader.read().then(function (step) {
+        if (step.done) {
+          if (whole && download.loaded === total) return whole.buffer;
+          var out = new Uint8Array(download.loaded);
+          var at = 0;
+          if (whole) { out.set(whole.subarray(0, Math.min(download.loaded, total))); at = Math.min(download.loaded, total); }
+          chunks.forEach(function (c) { out.set(c, at); at += c.length; });
+          return out.buffer;
+        }
+        var chunk = step.value;
+        if (whole && download.loaded + chunk.length <= total && !chunks.length) {
+          whole.set(chunk, download.loaded);
+        } else {
+          chunks.push(chunk); // more than the header said: keep the rest aside
+        }
+        download.loaded += chunk.length;
+        showProgress();
+        return pump();
+      });
+    };
+    return pump();
+  }
+
   // The game file's bytes: this page's own copy, else the GitHub Pages one.
   function loadGameFile() {
+    download.started = performance.now();
     var get = function (url) {
       return fetch(url).then(function (r) {
         if (!r.ok) throw new Error(url + ': ' + r.status);
-        return r.arrayBuffer();
+        return readCounting(r);
       });
     };
-    return get(GAME_FILE).catch(function () {
+    var bytes = get(GAME_FILE).catch(function () {
       return location.href.indexOf(GAME_FALLBACK.replace('game.riv', '')) === 0 ? Promise.reject() : get(GAME_FALLBACK);
+    });
+    if (!demo) return bytes;
+    // ?loaderdemo: hold the bytes until the stretched progress is done (or fail halfway, for the error)
+    return bytes.then(function (buffer) {
+      return new Promise(function (resolve, reject) {
+        var left = Math.max(0, download.started + DEMO_MS - performance.now());
+        setTimeout(function () {
+          if (demo === 'fail') reject(new Error('loaderdemo=fail'));
+          else resolve(buffer);
+        }, demo === 'fail' ? left / 2 : left);
+      });
     });
   }
 
@@ -225,7 +374,10 @@
       return;
     }
     var file = null;
+    startLoader();
     loadGameFile().then(function (buffer) {
+      download.done = true; // the loader's 100: Lars's last stomp plays while the game file is read
+      showProgress();
       file = new rive.RiveFile({ buffer: buffer, enableGPUCanvas: true });
       return file.init();
     }).then(function () {
@@ -245,7 +397,7 @@
           connectInsets(instance);
           connectScreen(instance);
           instance.resizeDrawingSurfaceToCanvas(pixelRatio());
-          hideStatus();
+          finishLoading();
           canvas.focus({ preventScroll: true });
         },
         onLoadError: function () {

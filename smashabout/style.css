@@ -37,32 +37,39 @@ html, body {
   outline: none;
 }
 
-/* loading / error message */
+/* loading / error message: the title, Lars's loading animation (app.js) under it, and the message, which only shows
+   for an error (screen readers still get "Loading Smashabout…") */
 #status {
   position: fixed;
   inset: 0;
   display: grid;
   place-content: center;
   justify-items: center;
-  gap: 16px;
+  gap: 6px;
   padding: 24px;
   text-align: center;
   background: var(--bg);
   z-index: 3;
+  transition: opacity 0.3s;
 }
 #status[hidden] { display: none; }
+#status.leaving { opacity: 0; pointer-events: none; }
+#status .title { display: block; width: min(80vw, 360px); height: auto; }
 #status .message { margin: 0; color: var(--muted); max-width: 28em; }
-#status.error .message { color: var(--error); }
-#status.error .spinner { display: none; }
-.spinner {
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  border: 3px solid var(--border);
-  border-top-color: var(--accent);
-  animation: spin 0.9s linear infinite;
+#status:not(.error) .message {
+  position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
 }
-@keyframes spin { to { transform: rotate(360deg); } }
+#status.error .message { color: var(--error); margin-top: 10px; }
+/* the space is kept from the start, so the title doesn't move when the animation appears */
+#loader {
+  display: block;
+  width: min(92vw, 440px);
+  aspect-ratio: 400 / 150;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+#loader.on { opacity: 1; }
+#status.error #loader { display: none; }
 
 /* the small save menu: a faint button tucked into the bottom-left corner
    (shown on the title and map screens only, see app.js) */

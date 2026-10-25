@@ -15,9 +15,61 @@
   <link rel="apple-touch-icon" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" href="icon-192.png">
   <link rel="manifest" href="manifest.webmanifest">
-  <!-- start downloading the loading animation and the game file while the runtime loads -->
-  <link rel="preload" href="loader.riv" as="fetch" crossorigin>
-  <link rel="preload" href="game.riv" as="fetch" crossorigin>
+  <!-- Cross-origin isolation, which Rive's threaded runtime needs for the crunch synth (an audio processor): GitHub
+       Pages can't send the COOP / COEP headers, so our own service worker (sw.js) adds them to this page's responses.
+       The first visit registers it and reloads once, so the page comes back through it; app.js waits for this before
+       loading anything big. No service worker (some private windows), or still not isolated after that one reload:
+       the game runs without threads, and without the synth's sounds (the console says why). ?coi=0 runs it that way
+       on purpose (testing): it unregisters the worker. -->
+  <script>
+    window.smashaboutIsolation = (function () {
+      var TRIED = 'smashabout.coiReload'; // sessionStorage: the reload was tried (no reload loops)
+      var EXPECT = 'smashabout.expectReload'; // app.js's reload watch: a reload the page asked for
+      var hold = new Promise(function () {}); // (reloading: nothing else should start)
+      function session(key, value) {
+        try {
+          if (value === undefined) return window.sessionStorage.getItem(key);
+          if (value === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, value);
+          return true;
+        } catch (e) {
+          return false; // storage blocked
+        }
+      }
+      function reloadOnce() {
+        if (session(TRIED) || !session(TRIED, '1')) return false;
+        session(EXPECT, '1');
+        window.location.reload();
+        return true;
+      }
+      var sw = navigator.serviceWorker;
+      if (new URLSearchParams(window.location.search).get('coi') === '0') {
+        if (!sw) return Promise.resolve('not isolated (?coi=0)');
+        return sw.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }).then(function () {
+          if (sw.controller && reloadOnce()) return hold;
+          session(TRIED, null); // (so a later visit without ?coi=0 gets its reload)
+          return 'not isolated (?coi=0)';
+        });
+      }
+      if (window.crossOriginIsolated) {
+        session(TRIED, null);
+        // start downloading the loading animation and the game file while the runtime loads (app.js takes these; a
+        // <link rel="preload"> isn't used through a service worker, so the file came down twice)
+        window.smashaboutEarly = { 'loader.riv': fetch('loader.riv'), 'game.riv': fetch('game.riv') };
+        return Promise.resolve('isolated');
+      }
+      if (!sw || !window.isSecureContext) return Promise.resolve('not isolated: no service workers in this browser window');
+      return sw.register('sw.js', { scope: './' }).then(function () {
+        return sw.ready;
+      }).then(function () {
+        if (reloadOnce()) return hold;
+        return 'not isolated: still not isolated after reloading through the service worker';
+      }).catch(function (e) {
+        return 'not isolated: the service worker didn’t register (' + e + ')';
+      });
+    })();
+  </script>
   <link rel="stylesheet" href="style.css?v=5">
 </head>
 <body>
@@ -62,10 +114,15 @@
     </form>
   </dialog>
 
-  <!-- Rive's web runtime, pinned to an exact version (see PUBLISHING.md before changing it) -->
-  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2@2.45.0/rive.js"></script>
-  <script src="app.js?v=11"></script>
+  <!-- Rive's web runtime, pinned to an exact version (see PUBLISHING.md before changing it). The threaded build: on a
+       cross-origin isolated page it loads rive_threads.wasm (app.js points its wasm at the same jsDelivr folder), which
+       runs the crunch synth; elsewhere it falls back to the build without threads. crossorigin: under
+       Cross-Origin-Embedder-Policy require-corp a cross-origin script loads with CORS (jsDelivr allows it). -->
+  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2-threads@2.47.1/rive.js" crossorigin="anonymous"></script>
+  <script src="app.js?v=15"></script>
   <!-- Cloudflare Web Analytics (Jeff 2026-10-22: page views only, no cookies; after the game so it never holds it up) -->
+  <!-- (a module script loads with CORS; under require-corp that needs the beacon's Access-Control-Allow-Origin: * and
+       Cross-Origin-Resource-Policy: cross-origin, which Cloudflare sends) -->
   <script type='module' src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "e570a280e9f146d6a3c1bad24b48c641"}'></script>
   <!-- End Cloudflare Web Analytics -->
 </body>

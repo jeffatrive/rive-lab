@@ -7,7 +7,8 @@
 // `save` from localStorage before the game's first frame, and copies every
 // change back to localStorage.
 //
-// Page options (add to the URL): ?mute=1 silences the game. ?debug=1 shows the reload watch (it stays on until
+// Page options (add to the URL): ?mute=1 silences the game (the samples through the player's volume, the crunch synth
+// through the game's hostMute). ?debug=1 shows the reload watch (it stays on until
 // ?debug=0); ?debug=reset clears its counts. The menu's Show/Hide reload watch does the same from inside the page,
 // which is the only way in a Home Screen web app (it opens at ./ with its own storage).
 // For testing the loading animation (a local download is instant): ?loaderdemo=1 stretches the reported download over
@@ -184,6 +185,57 @@
     window.addEventListener('resize', apply);
   }
 
+  // ?mute=1 for the crunch synth too: the game's audio processor plays outside the player's volume, so the game keeps
+  // it silent (hostMute: no hits sent, its master volume 0).
+  // The menu's MADE WITH RIVE (Jeff 2026-10-25): a tap sets the game's riveLink; open rive.app in a new tab and set it
+  // back. (A bool the game sets, as the page can't hear events from the menu's nested artboard.)
+  var RIVE_URL = 'https://rive.app';
+  function connectRiveLink(instance) {
+    var vm = instance.viewModelInstance;
+    var link = vm && vm.boolean('riveLink');
+    if (!link || !link.on) return;
+    link.on(function () {
+      if (!link.value) return;
+      link.value = false;
+      var w = window.open(RIVE_URL, '_blank');
+      if (w) {
+        try { w.opener = null; } catch (e) { /* (cross-origin already) */ }
+      }
+    });
+  }
+
+  function connectMute(instance) {
+    var vm = instance.viewModelInstance;
+    var hostMute = vm && vm.boolean('hostMute');
+    if (hostMute) hostMute.value = muted;
+  }
+
+  // Can the crunch synth play here? Cross-origin isolation (index.html, sw.js) and the threaded runtime it allows. Said
+  // in the console either way; without them the game plays on, without the synth's building hits and chain ladder.
+  function reportAudio() {
+    var isolation = window.smashaboutIsolation ? window.smashaboutIsolation : Promise.resolve('no isolation check');
+    Promise.all([isolation, rive.RuntimeLoader.awaitInstance()]).then(function (got) {
+      var scripting = got[1] && got[1].riveScripting;
+      var refusal = scripting && scripting.audioRefusal ? scripting.audioRefusal() : 'this runtime has no audio processors';
+      if (refusal) {
+        console.warn('Smashabout: ' + got[0] + '; no real-time audio (' + refusal + '): the game’s sound effects are missing (the music and voices still play).');
+      } else {
+        console.info('Smashabout: ' + got[0] + ', threaded runtime: the sound effects can play' + (muted ? ' (muted: ?mute=1)' : '') + '.');
+      }
+    }).catch(function () { /* (only a report) */ });
+  }
+
+  // The runtime's wasm from the same jsDelivr folder as rive.js (index.html pins the version once): the threaded build
+  // on an isolated page, else the plain one (and its fallback build), all from one CDN that allows CORS and CORP.
+  function pointWasm() {
+    var tag = document.querySelector('script[src*="/@rive-app/"][src$="/rive.js"]');
+    if (!tag || typeof rive === 'undefined' || !rive.RuntimeLoader) return;
+    var dir = tag.src.replace(/rive\.js$/, '');
+    rive.RuntimeLoader.setWasmUrl(dir + 'rive.wasm');
+    rive.RuntimeLoader.setWasmFallbackUrl(dir + 'rive_fallback.wasm');
+    if (rive.RuntimeLoader.setWasmThreadsUrl) rive.RuntimeLoader.setWasmThreadsUrl(dir + 'rive_threads.wasm');
+  }
+
   function connectSave(instance) {
     var vm = instance.viewModelInstance;
     saveProp = vm ? vm.string('save') : null;
@@ -256,8 +308,19 @@
     loader.progress.value = p;
   }
 
+  // A download index.html started early (on an isolated page), once; else a new fetch.
+  function fetchEarly(url) {
+    var early = window.smashaboutEarly;
+    var p = early && early[url];
+    if (p) {
+      early[url] = null;
+      return p;
+    }
+    return fetch(url);
+  }
+
   function startLoader() {
-    fetch(LOADER_FILE).then(function (r) {
+    fetchEarly(LOADER_FILE).then(function (r) {
       if (!r.ok) throw new Error(LOADER_FILE + ': ' + r.status);
       return r.arrayBuffer();
     }).then(function (buffer) {
@@ -357,7 +420,7 @@
   function loadGameFile() {
     download.started = performance.now();
     var get = function (url) {
-      return fetch(url).then(function (r) {
+      return fetchEarly(url).then(function (r) {
         if (!r.ok) throw new Error(url + ': ' + r.status);
         return readCounting(r);
       });
@@ -407,6 +470,9 @@
         onLoad: function () {
           riveInstance = instance;
           if (muted) instance.volume = 0;
+          connectMute(instance);
+          connectRiveLink(instance);
+          reportAudio();
           connectSave(instance);
           connectInsets(instance);
           connectScreen(instance);
@@ -648,5 +714,15 @@
   document.addEventListener('gesturestart', function (e) { e.preventDefault(); });
 
   watchReloads();
-  start();
+  // after the isolation check (index.html): a first visit reloads through the service worker before loading anything
+  if (window.smashaboutIsolation) {
+    window.smashaboutIsolation.then(function (state) {
+      if (state !== 'isolated') console.warn('Smashabout: ' + state + '.');
+      pointWasm();
+      start();
+    });
+  } else {
+    pointWasm();
+    start();
+  }
 })();

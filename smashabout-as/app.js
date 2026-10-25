@@ -187,6 +187,23 @@
 
   // ?mute=1 for the crunch synth too: the game's audio processor plays outside the player's volume, so the game keeps
   // it silent (hostMute: no hits sent, its master volume 0).
+  // The menu's MADE WITH RIVE (Jeff 2026-10-25): a tap sets the game's riveLink; open rive.app in a new tab and set it
+  // back. (A bool the game sets, as the page can't hear events from the menu's nested artboard.)
+  var RIVE_URL = 'https://rive.app';
+  function connectRiveLink(instance) {
+    var vm = instance.viewModelInstance;
+    var link = vm && vm.boolean('riveLink');
+    if (!link || !link.on) return;
+    link.on(function () {
+      if (!link.value) return;
+      link.value = false;
+      var w = window.open(RIVE_URL, '_blank');
+      if (w) {
+        try { w.opener = null; } catch (e) { /* (cross-origin already) */ }
+      }
+    });
+  }
+
   function connectMute(instance) {
     var vm = instance.viewModelInstance;
     var hostMute = vm && vm.boolean('hostMute');
@@ -454,6 +471,7 @@
           riveInstance = instance;
           if (muted) instance.volume = 0;
           connectMute(instance);
+          connectRiveLink(instance);
           reportAudio();
           connectSave(instance);
           connectInsets(instance);

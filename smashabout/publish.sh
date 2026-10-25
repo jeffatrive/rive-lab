@@ -14,12 +14,14 @@
 # Changes to the page itself (index.html, app.js, ...) go live with a normal commit + push to main.
 set -euo pipefail
 
+# (SITE_DIR, TAG, RIV and GAME_DIR let another copy of the page use this script: smashabout-as/publish.sh, the
+# AnimaScript build, Jeff 2026-10-25)
 REPO=jeffatrive/rive-lab
-TAG=smashabout-game
 WORKFLOW=static.yml
-SITE_URL=https://jeffatrive.github.io/rive-lab/smashabout/
-
-SITE="$(cd "$(dirname "$0")" && pwd)"
+SITE="${SITE_DIR:-$(cd "$(dirname "$0")" && pwd)}"
+TAG="${TAG:-smashabout-game}"
+RIV="${RIV:-kaiju3d.riv}"
+SITE_URL="https://jeffatrive.github.io/rive-lab/$(basename "$SITE")/"
 GAME="${GAME_DIR:-$(dirname "$SITE")/kaiju/game3d}"
 BUILD=1
 ASK=1
@@ -43,12 +45,12 @@ if [ "$BUILD" = 1 ]; then
   command -v rive >/dev/null || fail "rive-cli isn't installed"
   LOG="$(mktemp)"
   (cd "$GAME" && rive . --publish 2>&1) | tee "$LOG" || true
-  grep -q 'published build/kaiju3d.riv' "$LOG" || fail "the build didn't finish (see above). Missing build/blobs or build/fonts? Run  python3 tools/gen.py  in game3d first."
+  grep -q "published build/$RIV" "$LOG" || fail "the build didn't finish (see above). Missing build/blobs or build/fonts? Run  python3 tools/gen.py  in game3d first."
   grep -q ' 0 errors' "$LOG" || fail "the build reported errors (see above)"
   rm -f "$LOG"
   # copy straight away: any other `rive .` run (a screenshot, the previewer) rewrites
   # build/kaiju3d.riv UNSIGNED, and web players refuse unsigned scripts and shaders
-  cp "$GAME/build/kaiju3d.riv" "$SITE/game.riv"
+  cp "$GAME/build/$RIV" "$SITE/game.riv"
 fi
 
 [ -s "$SITE/game.riv" ] || fail "no smashabout/game.riv to upload"
@@ -68,8 +70,8 @@ if gh release view "$TAG" -R "$REPO" >/dev/null 2>&1; then
   gh release upload "$TAG" "$SITE/game.riv" -R "$REPO" --clobber
 else
   gh release create "$TAG" "$SITE/game.riv" -R "$REPO" --latest=false \
-    --title "Smashabout game file" \
-    --notes "The game file the Smashabout page loads (https://jeffatrive.github.io/rive-lab/smashabout/). Replaced by smashabout/publish.sh on every update; the Pages workflow copies it into the site."
+    --title "Smashabout game file ($(basename "$SITE"))" \
+    --notes "The game file the page at $SITE_URL loads. Replaced by its publish.sh on every update; the Pages workflow copies it into the site."
 fi
 
 # 3. redeploy the site with it

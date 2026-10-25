@@ -129,10 +129,15 @@
   // stays at 1; a bigger window keeps at least 600 x 760 points to lay out in, about a phone's height, so the menus
   // fit without scrolling and the board keeps its room under the HUD. It changes the layout's size only, not the pixels
   // drawn (the canvas and the 2x cap).
+  // A window shorter than FIT_H points scales the UI DOWN instead (Jeff 2026-10-25: in a phone browser with its address
+  // and tool bars, about 390 x 660, the city card's difficulty and START were off the bottom; the Home Screen app, with
+  // no bars, had always fit): the game is laid out at least FIT_H tall and drawn to fit, down to MIN_SCALE.
   var MIN_W = 600, MIN_H = 760, MAX_SCALE = 1.5;
+  var FIT_H = 800, MIN_SCALE = 0.7;
   function uiScale() {
     var s = Math.min(window.innerWidth / MIN_W, window.innerHeight / MIN_H);
-    return Math.round(Math.max(1, Math.min(MAX_SCALE, s)) * 100) / 100;
+    if (s <= 1) s = Math.max(MIN_SCALE, Math.min(1, window.innerHeight / FIT_H));
+    return Math.round(Math.min(MAX_SCALE, s) * 100) / 100;
   }
 
   function gameLayout() {

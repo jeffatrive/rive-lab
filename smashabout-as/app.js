@@ -132,12 +132,21 @@
   // drawn (the canvas and the 2x cap).
   // A window shorter than FIT_H points scales the UI DOWN instead (Jeff 2026-10-25: in a phone browser with its address
   // and tool bars, about 390 x 660, the city card's difficulty and START were off the bottom; the Home Screen app, with
-  // no bars, had always fit): the game is laid out at least FIT_H tall and drawn to fit, down to MIN_SCALE.
+  // no bars, had always fit): the game is laid out at least FIT_H tall and drawn to fit, down to MIN_SCALE. The height
+  // is the smallest the browser reports, the canvas's own included (Jeff's iPhone Chrome, 2026-10-25: about 553 points
+  // under its bars, and 800 / 0.7 still cut START off the city card).
   var MIN_W = 600, MIN_H = 760, MAX_SCALE = 1.5;
-  var FIT_H = 800, MIN_SCALE = 0.7;
+  var FIT_H = 860, MIN_SCALE = 0.6;
+  function viewHeight() {
+    var h = window.innerHeight;
+    if (canvas.clientHeight) h = Math.min(h, canvas.clientHeight);
+    if (window.visualViewport && window.visualViewport.height) h = Math.min(h, window.visualViewport.height);
+    return h;
+  }
   function uiScale() {
-    var s = Math.min(window.innerWidth / MIN_W, window.innerHeight / MIN_H);
-    if (s <= 1) s = Math.max(MIN_SCALE, Math.min(1, window.innerHeight / FIT_H));
+    var h = viewHeight();
+    var s = Math.min(window.innerWidth / MIN_W, h / MIN_H);
+    if (s <= 1) s = Math.max(MIN_SCALE, Math.min(1, h / FIT_H));
     return Math.round(Math.min(MAX_SCALE, s) * 100) / 100;
   }
 

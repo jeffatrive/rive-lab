@@ -40,6 +40,16 @@ jobs:
           else
             echo "::warning::No game.riv on the smashabout-game release: the Smashabout page won't load its game. Run smashabout/publish.sh."
           fi
+      # the 2.5D planning test copy of the page (smashabout-25d/publish.sh, Jeff 2026-10-26), from its own release
+      - name: Fetch the Smashabout 2.5D test game file
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release download smashabout-25d-game --repo "$GITHUB_REPOSITORY" --pattern game.riv --dir smashabout-25d --clobber; then
+            ls -l smashabout-25d/game.riv
+          else
+            echo "::warning::No game.riv on the smashabout-25d-game release yet. Run smashabout-25d/publish.sh."
+          fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:

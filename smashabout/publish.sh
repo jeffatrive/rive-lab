@@ -4,8 +4,11 @@
 #   smashabout/publish.sh              build a signed game.riv, upload it, redeploy the site
 #   smashabout/publish.sh --no-build   upload the game.riv already in smashabout/ (skip the build)
 #   smashabout/publish.sh --yes        don't ask before uploading
+#   smashabout/publish.sh --no-changelog  skip the changelog check (a rebuild with no game change)
 #
 # What it does (see PUBLISHING.md):
+#   0. checks the game's changelog has a dated entry for every change since the last one (the game's
+#      tools/changelog_check.py, when it has one; Jeff 2026-10-27), and stops with what's missing;
 #   1. builds a signed .riv in kaiju/game3d (`rive . --publish`, writes only build/) and copies it
 #      to smashabout/game.riv (git ignores that file: it never goes into the repo's history);
 #   2. uploads it to the `smashabout-game` release on GitHub, replacing the old one;
@@ -25,10 +28,12 @@ SITE_URL="https://jeffatrive.github.io/rive-lab/$(basename "$SITE")/"
 GAME="${GAME_DIR:-$(dirname "$SITE")/kaiju/game3d}"
 BUILD=1
 ASK=1
+CHANGELOG=1
 for arg in "$@"; do
   case "$arg" in
     --no-build) BUILD=0 ;;
     --yes|-y) ASK=0 ;;
+    --no-changelog) CHANGELOG=0 ;;
     *) echo "unknown option: $arg" >&2; exit 2 ;;
   esac
 done
@@ -38,6 +43,12 @@ fail() { printf '\n\033[31mStopped: %s\033[0m\n' "$1" >&2; exit 1; }
 
 command -v gh >/dev/null || fail "the GitHub CLI (gh) isn't installed: brew install gh"
 gh auth status >/dev/null 2>&1 || fail "gh isn't signed in: run  gh auth login"
+
+# 0. the changelog (WHAT'S NEW in the game's menu): a dated entry for what changed
+if [ "$BUILD" = 1 ] && [ "$CHANGELOG" = 1 ] && [ -f "$GAME/tools/changelog_check.py" ]; then
+  step "Checking the changelog"
+  (cd "$GAME" && python3 tools/changelog_check.py) || fail "the changelog needs an entry first (or pass --no-changelog)"
+fi
 
 # 1. build
 if [ "$BUILD" = 1 ]; then

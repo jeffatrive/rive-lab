@@ -36,14 +36,18 @@ smashabout/publish.sh
 ```
 
 It:
-1. builds a signed game file in `kaiju/game3d` (`rive . --publish`, which writes only to `build/`) and copies it to `smashabout/game.riv`;
-2. asks before uploading anything;
-3. uploads it to the `smashabout-game` release, replacing the old one;
-4. starts the Pages workflow, waits for it to finish (usually under a minute), and prints the link.
+1. checks the game's WHAT'S NEW list first: `CHANGELOG.md` in `kaiju/game3d` needs a dated entry covering every game change since its last one, and `tools/gen.py` must have run since (it puts the list in the game). If not, it stops and lists the changes the entry should cover;
+2. builds a signed game file in `kaiju/game3d` (`rive . --publish`, which writes only to `build/`) and copies it to `smashabout/game.riv`;
+3. asks before uploading anything;
+4. uploads it to the `smashabout-game` release, replacing the old one;
+5. starts the Pages workflow, waits for it to finish (usually under a minute), and prints the link.
 
 Options:
 - `--no-build` uploads the `game.riv` that's already there.
 - `--yes` skips the question.
+- `--no-changelog` skips the changelog check (a rebuild with nothing new for players).
+
+**The changelog.** In `kaiju/game3d/CHANGELOG.md`, add an entry at the top: a `## v<version> · <Mon D, YYYY>` line with today's date, then one short `- ` line per change, written for players. A second publish on the same day adds lines to that day's entry. The middle number goes up for new things, the last one for fixes only. Then run `python3 tools/gen.py` there, and publish.
 
 You don't need to commit anything for a game update.
 

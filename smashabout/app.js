@@ -187,21 +187,56 @@
 
   // ?mute=1 for the crunch synth too: the game's audio processor plays outside the player's volume, so the game keeps
   // it silent (hostMute: no hits sent, its master volume 0).
-  // The menu's MADE WITH RIVE (Jeff 2026-10-25): a tap sets the game's riveLink; open rive.app in a new tab and set it
-  // back. (A bool the game sets, as the page can't hear events from the menu's nested artboard.)
+  // The menu's links: a tap sets one of the game's bools; open its page in a new tab and set it back. (A bool the game
+  // sets, as the page can't hear events from the menu's nested artboard.)
+  //   riveLink      MADE WITH RIVE (Jeff 2026-10-25)
+  //   feedbackLink  SEND FEEDBACK (Jeff 2026-10-29): his Google Form, its "Game info" answer filled in (techDetails)
   var RIVE_URL = 'https://rive.app';
-  function connectRiveLink(instance) {
+  var FEEDBACK_URL = 'https://docs.google.com/forms/d/e/1FAIpQLSdJxoDQjTAYh9EwT4LkMWx7tiLvQONXd2wt_XgHPBLBF38OMA/viewform';
+  var FEEDBACK_INFO = 'entry.681145190';
+  function connectLink(instance, name, url) {
     var vm = instance.viewModelInstance;
-    var link = vm && vm.boolean('riveLink');
+    var link = vm && vm.boolean(name);
     if (!link || !link.on) return;
     link.on(function () {
       if (!link.value) return;
       link.value = false;
-      var w = window.open(RIVE_URL, '_blank');
+      var to = typeof url === 'function' ? url(vm) : url;
+      if (!to) return;
+      var w = window.open(to, '_blank');
       if (w) {
         try { w.opener = null; } catch (e) { /* (cross-origin already) */ }
       }
     });
+  }
+
+  function feedbackUrl(vm) {
+    return FEEDBACK_URL + '?usp=pp_url&' + FEEDBACK_INFO + '=' + encodeURIComponent(techDetails(vm));
+  }
+
+  // The form's "Game info": the version, the device and the browser, kept coarse (no full user agent), e.g.
+  // "v0.12.0 · iPhone · Safari 18". The player sees it in the form and can change it.
+  function techDetails(vm) {
+    var ua = navigator.userAgent || '';
+    var gv = vm && vm.string('gameVersion');
+    var version = gv && gv.value ? gv.value.split(' ')[0] : '?';
+    var touch = navigator.maxTouchPoints > 1;
+    var device = /iPhone/.test(ua) ? 'iPhone'
+      : /iPad/.test(ua) || (/Macintosh/.test(ua) && touch) ? 'iPad'      // (iPadOS asks for the desktop site)
+      : /Android/.test(ua) ? (/Mobile/.test(ua) ? 'Android phone' : 'Android tablet')
+      : /CrOS/.test(ua) ? 'Chromebook'
+      : /Macintosh/.test(ua) ? 'Mac'
+      : /Windows/.test(ua) ? 'Windows'
+      : /Linux/.test(ua) ? 'Linux' : 'other device';
+    var m;
+    var browser = (m = ua.match(/Edg(?:A|iOS)?\/(\d+)/)) ? 'Edge ' + m[1]
+      : (m = ua.match(/SamsungBrowser\/(\d+)/)) ? 'Samsung Internet ' + m[1]
+      : (m = ua.match(/(?:Firefox|FxiOS)\/(\d+)/)) ? 'Firefox ' + m[1]
+      : (m = ua.match(/(?:Chrome|CriOS)\/(\d+)/)) ? 'Chrome ' + m[1]
+      : (m = ua.match(/Version\/(\d+)[.\d]* .*Safari/)) ? 'Safari ' + m[1]
+      : /Safari/.test(ua) ? 'Safari' : 'other browser';
+    var standalone = window.navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+    return version + ' · ' + device + ' · ' + browser + (standalone ? ' (Home Screen app)' : '');
   }
 
   function connectMute(instance) {
@@ -471,7 +506,8 @@
           riveInstance = instance;
           if (muted) instance.volume = 0;
           connectMute(instance);
-          connectRiveLink(instance);
+          connectLink(instance, 'riveLink', RIVE_URL);
+          connectLink(instance, 'feedbackLink', feedbackUrl);
           reportAudio();
           connectSave(instance);
           connectInsets(instance);

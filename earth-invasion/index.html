@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Earth Invasion</title>
+  <meta name="description" content="Earth Invasion: snow macaques vs. a goofy alien ship. Made with Rive.">
+  <!-- the sea's color: any browser bar or gap matches the game instead of showing a black stripe -->
+  <meta name="theme-color" content="#2aa6c4">
+  <!-- "Add to Home Screen" on iPhone: full screen, own icon. The game is landscape, where iOS hides the status bar,
+       so the canvas runs edge to edge (viewport-fit=cover) under a translucent bar. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Earth Invasion">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <!-- Cross-origin isolation, which Rive's threaded runtime needs for the game's synth (an audio processor makes all
+       its sound): GitHub Pages can't send the COOP / COEP headers, so our own service worker (sw.js) adds them. The
+       first visit registers it and reloads once, so the page comes back through it; app.js waits for this. No
+       service worker, or still not isolated after that one reload: the game runs silent (the console says why).
+       ?coi=0 runs it that way on purpose (testing): it unregisters the worker. -->
+  <script>
+    window.eiIsolation = (function () {
+      var TRIED = 'earthInvasion.coiReload'; // sessionStorage: the reload was tried (no reload loops)
+      var hold = new Promise(function () {}); // (reloading: nothing else should start)
+      function session(key, value) {
+        try {
+          if (value === undefined) return window.sessionStorage.getItem(key);
+          if (value === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, value);
+          return true;
+        } catch (e) {
+          return false; // storage blocked
+        }
+      }
+      function reloadOnce() {
+        if (session(TRIED) || !session(TRIED, '1')) return false;
+        window.location.reload();
+        return true;
+      }
+      var sw = navigator.serviceWorker;
+      if (new URLSearchParams(window.location.search).get('coi') === '0') {
+        if (!sw) return Promise.resolve('not isolated (?coi=0)');
+        return sw.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }).then(function () {
+          if (sw.controller && reloadOnce()) return hold;
+          session(TRIED, null);
+          return 'not isolated (?coi=0)';
+        });
+      }
+      if (window.crossOriginIsolated) {
+        session(TRIED, null);
+        window.eiEarly = fetch('game.riv'); // start the download while the runtime loads (app.js takes it)
+        return Promise.resolve('isolated');
+      }
+      if (!sw || !window.isSecureContext) return Promise.resolve('not isolated: no service workers in this browser window');
+      return sw.register('sw.js', { scope: './' }).then(function () {
+        return sw.ready;
+      }).then(function () {
+        if (reloadOnce()) return hold;
+        return 'not isolated: still not isolated after reloading through the service worker';
+      }).catch(function (e) {
+        return 'not isolated: the service worker didn’t register (' + e + ')';
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <canvas id="game" tabindex="-1"></canvas>
+
+  <!-- a phone held upright: the game is landscape, so a card asks to turn it -->
+  <div id="rotate" role="alert">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+      <rect x="7" y="2.5" width="10" height="19" rx="2.2"/><path d="M10.5 18.5h3"/>
+    </svg>
+    <p>Turn your phone sideways</p>
+  </div>
+
+  <div id="status" role="status" aria-live="polite">
+    <h1>Earth Invasion</h1>
+    <div class="bar" aria-hidden="true"><span></span></div>
+    <p class="message">Loading…</p>
+  </div>
+
+  <!-- Rive's web runtime, pinned to an exact version (the one Smashabout uses, see PUBLISHING.md). The threaded build:
+       on a cross-origin isolated page it loads rive_threads.wasm, which runs the synth; elsewhere it falls back to the
+       build without threads. -->
+  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2-threads@2.47.1/rive.js" crossorigin="anonymous"></script>
+  <script src="app.js?v=1"></script>
+</body>
+</html>

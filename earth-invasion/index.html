@@ -52,7 +52,7 @@
       }
       if (window.crossOriginIsolated) {
         session(TRIED, null);
-        window.eiEarly = fetch('game.riv'); // start the download while the runtime loads (app.js takes it)
+        window.eiEarly = fetch('game.riv', { cache: 'no-cache' }); // start the download while the runtime loads (app.js takes it); no-cache: ask the server every load, so a new game shows at once
         return Promise.resolve('isolated');
       }
       if (!sw || !window.isSecureContext) return Promise.resolve('not isolated: no service workers in this browser window');

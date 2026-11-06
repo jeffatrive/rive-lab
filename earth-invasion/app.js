@@ -113,7 +113,7 @@
   function loadGameFile() {
     var early = window.eiEarly;
     window.eiEarly = null;
-    return (early || fetch(GAME_FILE)).then(function (r) {
+    return (early || fetch(GAME_FILE, { cache: 'no-cache' })).then(function (r) { // no-cache: revalidate (a 304 when unchanged)
       if (!r.ok) throw new Error(GAME_FILE + ': ' + r.status);
       return readCounting(r);
     });

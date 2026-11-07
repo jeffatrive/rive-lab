@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>Snack Storm</title>
+  <meta name="description" content="Snack Storm: feed the hungry critters, rescue the food trucks. A kids' game made with Rive.">
+  <!-- the night lot's navy: any browser bar or gap matches the game instead of showing a black stripe -->
+  <meta name="theme-color" content="#221f45">
+  <!-- "Add to Home Screen" on iPhone: full screen, own icon. The game lays itself out for any shape (a phone upright
+       or sideways, a desktop window), so the canvas runs edge to edge (viewport-fit=cover) under a translucent bar
+       and style.css keeps the safe areas in mind. -->
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Snack Storm">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="icon" type="image/png" href="icon-192.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <!-- Cross-origin isolation, which Rive's threaded runtime needs for the game's synth (an AnimaScript audio
+       processor makes all its sound): GitHub Pages can't send the COOP / COEP headers, so our own service worker
+       (sw.js) adds them. The first visit registers it and reloads once, so the page comes back through it; app.js
+       waits for this. No service worker, or still not isolated after that one reload: the game runs silent (the
+       console says why). ?coi=0 runs it that way on purpose (testing): it unregisters the worker. -->
+  <script>
+    window.ssIsolation = (function () {
+      var TRIED = 'snackStorm.coiReload'; // sessionStorage: the reload was tried (no reload loops)
+      var hold = new Promise(function () {}); // (reloading: nothing else should start)
+      function session(key, value) {
+        try {
+          if (value === undefined) return window.sessionStorage.getItem(key);
+          if (value === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, value);
+          return true;
+        } catch (e) {
+          return false; // storage blocked
+        }
+      }
+      function reloadOnce() {
+        if (session(TRIED) || !session(TRIED, '1')) return false;
+        window.location.reload();
+        return true;
+      }
+      var sw = navigator.serviceWorker;
+      if (new URLSearchParams(window.location.search).get('coi') === '0') {
+        if (!sw) return Promise.resolve('not isolated (?coi=0)');
+        return sw.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }).then(function () {
+          if (sw.controller && reloadOnce()) return hold;
+          session(TRIED, null);
+          return 'not isolated (?coi=0)';
+        });
+      }
+      if (window.crossOriginIsolated) {
+        session(TRIED, null);
+        window.ssEarly = fetch('game.riv', { cache: 'no-cache' }); // start the download while the runtime loads (app.js takes it); no-cache: ask the server every load, so a new game shows at once
+        return Promise.resolve('isolated');
+      }
+      if (!sw || !window.isSecureContext) return Promise.resolve('not isolated: no service workers in this browser window');
+      return sw.register('sw.js', { scope: './' }).then(function () {
+        return sw.ready;
+      }).then(function () {
+        if (reloadOnce()) return hold;
+        return 'not isolated: still not isolated after reloading through the service worker';
+      }).catch(function (e) {
+        return 'not isolated: the service worker didn’t register (' + e + ')';
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <canvas id="game" tabindex="-1"></canvas>
+
+  <div id="status" role="status" aria-live="polite">
+    <h1>Snack Storm</h1>
+    <div class="bar" aria-hidden="true"><span></span></div>
+    <p class="message">Loading…</p>
+  </div>
+
+  <!-- Rive's web runtime, pinned to an exact version: the one the rive.to page of this game loads (see PUBLISHING.md).
+       The threaded build: on a cross-origin isolated page it loads rive_threads.wasm, which runs the synth; elsewhere it
+       falls back to the build without threads. -->
+  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2-threads@2.49.4/rive.js" crossorigin="anonymous"></script>
+  <script src="app.js?v=1"></script>
+</body>
+</html>

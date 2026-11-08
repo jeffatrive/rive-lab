@@ -220,6 +220,74 @@
     applySilent();
   }
 
+  // Hidden or left, the page also suspends its audio contexts (index.html lists every one in window.ssAudioContexts;
+  // the runtime makes the synth's). A running context, even a silent one, keeps iOS showing "audio playing" after you
+  // leave, until Safari is quit: the runtime sets navigator.audioSession to "playback", which lets audio run in the
+  // background. Back in view, the page resumes only the contexts it suspended; if the browser wants a tap first, the
+  // next tap, click or key does it. A page that's going away for good (pagehide, not kept for Back) closes them.
+  var wokenByPage = []; // contexts this page suspended and still has to resume
+  var gestureEvents = ['pointerdown', 'pointerup', 'touchend', 'keydown'];
+  var waitingForGesture = false;
+
+  function audioContexts() {
+    var list = window.ssAudioContexts || [];
+    for (var i = list.length - 1; i >= 0; i--) if (list[i].state === 'closed') list.splice(i, 1);
+    return list;
+  }
+
+  function quietly(promise) {
+    if (promise && promise.catch) promise.catch(function () { /* (refused or closed: nothing to do) */ });
+  }
+
+  function suspendAudio() {
+    stopWaitingForGesture();
+    audioContexts().forEach(function (context) {
+      if (context.state === 'suspended') return; // (never started, or the runtime's own: not ours to resume)
+      if (wokenByPage.indexOf(context) < 0) wokenByPage.push(context);
+      quietly(context.suspend());
+    });
+  }
+
+  function closeAudio() {
+    stopWaitingForGesture();
+    wokenByPage = [];
+    audioContexts().forEach(function (context) { quietly(context.close()); });
+  }
+
+  function resumeAudio() {
+    if (document.visibilityState === 'hidden') return;
+    wokenByPage = wokenByPage.filter(function (context) { return context.state !== 'closed'; });
+    wokenByPage.slice().forEach(function (context) {
+      var ask = context.resume();
+      var check = function () {
+        if (context.state === 'running') {
+          var at = wokenByPage.indexOf(context);
+          if (at >= 0) wokenByPage.splice(at, 1);
+          if (!wokenByPage.length) stopWaitingForGesture();
+        } else {
+          waitForGesture();
+        }
+      };
+      if (ask && ask.then) ask.then(check, waitForGesture); else check();
+    });
+  }
+
+  function onGesture() {
+    resumeAudio();
+  }
+
+  function waitForGesture() {
+    if (waitingForGesture || !wokenByPage.length || document.visibilityState === 'hidden') return;
+    waitingForGesture = true;
+    gestureEvents.forEach(function (type) { window.addEventListener(type, onGesture, true); });
+  }
+
+  function stopWaitingForGesture() {
+    if (!waitingForGesture) return;
+    waitingForGesture = false;
+    gestureEvents.forEach(function (type) { window.removeEventListener(type, onGesture, true); });
+  }
+
   // ------------------------------------------------------------ the safe area (notch)
 
   // In standalone (home screen) mode on an iPhone the canvas runs under the notch (viewport-fit=cover). The game lays its
@@ -337,9 +405,23 @@
 
   document.addEventListener('visibilitychange', function () {
     applySilent();
-    if (document.visibilityState === 'hidden') flushSave();
+    if (document.visibilityState === 'hidden') {
+      flushSave();
+      suspendAudio();
+    } else {
+      resumeAudio();
+    }
   });
-  window.addEventListener('pagehide', flushSave);
+  window.addEventListener('pagehide', function (event) {
+    flushSave();
+    if (event.persisted) suspendAudio(); // kept for Back/Forward: pageshow wakes it
+    else closeAudio(); // gone for good
+  });
+  window.addEventListener('pageshow', function (event) {
+    if (event.persisted) resumeAudio();
+  });
+  document.addEventListener('freeze', suspendAudio); // (Chrome: a hidden page about to be frozen)
+  document.addEventListener('resume', resumeAudio);
 
   // nothing big starts until the service worker settles (its first visit reloads the page once)
   window.ssIsolation.then(function (state) {

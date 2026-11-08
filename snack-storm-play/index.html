@@ -67,6 +67,26 @@
       });
     })();
   </script>
+  <!-- Every Web Audio context the page makes, listed in window.ssAudioContexts so app.js can suspend them while the
+       page is hidden (iOS shows "audio playing" for as long as one runs). Rive's runtime makes its own with a plain
+       `new AudioContext`, so this wraps the constructor before rive.js loads; the contexts themselves are untouched. -->
+  <script>
+    (function () {
+      var made = window.ssAudioContexts = [];
+      if (typeof Proxy !== 'function' || typeof Reflect !== 'object') return;
+      ['AudioContext', 'webkitAudioContext'].forEach(function (name) {
+        var Real = window[name];
+        if (typeof Real !== 'function') return;
+        window[name] = new Proxy(Real, {
+          construct: function (target, args, newTarget) {
+            var context = Reflect.construct(target, args, newTarget);
+            if (made.indexOf(context) < 0) made.push(context);
+            return context;
+          }
+        });
+      });
+    })();
+  </script>
   <link rel="stylesheet" href="style.css?v=1">
 </head>
 <body>
@@ -82,6 +102,6 @@
        The threaded build: on a cross-origin isolated page it loads rive_threads.wasm, which runs the synth; elsewhere it
        falls back to the build without threads. -->
   <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2-threads@2.49.4/rive.js" crossorigin="anonymous"></script>
-  <script src="app.js?v=1"></script>
+  <script src="app.js?v=2"></script>
 </body>
 </html>

@@ -15,6 +15,12 @@ troubleshooting table):
   instances the default artboard once to read its state machine's name, and a start in `init` left a second processor
   behind (2026-11-07: the old build reported `processors: 2`, the new one 1). To check in a console:
   `(await rive.RuntimeLoader.awaitInstance()).riveScripting.audioState()`.
+- **Leaving the page stops the audio context.** The runtime sets `navigator.audioSession.type = "playback"` and makes its
+  own `AudioContext`, which kept running in the background (silent, the game fades itself out) so iOS showed "audio
+  playing" until Safari was quit. A small script in `index.html` (before `rive.js`) wraps the `AudioContext` constructor
+  and lists every context in `window.ssAudioContexts`; `app.js` suspends them on `visibilitychange` hidden, `freeze` and
+  `pagehide` (kept for Back), closes them on a `pagehide` that's for good, and resumes the ones it suspended when the
+  page is visible again (on the next tap, click or key if the browser refuses).
 - **Progress** is kept in the browser under the localStorage key `snackStorm.save` (the game's own `save` string, see
   "The save bridge" below). Each browser and each device has its own save.
 

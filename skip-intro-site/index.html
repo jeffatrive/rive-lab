@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>VECTOR/9: Skip Intro</title>
+  <meta name="description" content="VECTOR/9, a 2003-style agency splash page with an intro, a soundtrack and something to spin. Made with Rive.">
+  <meta name="theme-color" content="#07090c">
+  <!-- Cross-origin isolation, which Rive's threaded runtime needs for the site's synth (an audio processor makes all
+       its sound): GitHub Pages can't send the COOP / COEP headers, so our own service worker (sw.js) adds them. The
+       first visit registers it and reloads once, so the page comes back through it; app.js waits for this. No
+       service worker, or still not isolated after that one reload: the site runs silent (the console says why).
+       ?coi=0 runs it that way on purpose (testing): it unregisters the worker. (As earth-invasion/index.html.) -->
+  <script>
+    window.siIsolation = (function () {
+      var TRIED = 'skipIntro.coiReload'; // sessionStorage: the reload was tried (no reload loops)
+      var hold = new Promise(function () {}); // (reloading: nothing else should start)
+      function session(key, value) {
+        try {
+          if (value === undefined) return window.sessionStorage.getItem(key);
+          if (value === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, value);
+          return true;
+        } catch (e) {
+          return false; // storage blocked
+        }
+      }
+      function reloadOnce() {
+        if (session(TRIED) || !session(TRIED, '1')) return false;
+        window.location.reload();
+        return true;
+      }
+      var sw = navigator.serviceWorker;
+      if (new URLSearchParams(window.location.search).get('coi') === '0') {
+        if (!sw) return Promise.resolve('not isolated (?coi=0)');
+        return sw.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }).then(function () {
+          if (sw.controller && reloadOnce()) return hold;
+          session(TRIED, null);
+          return 'not isolated (?coi=0)';
+        });
+      }
+      if (window.crossOriginIsolated) {
+        session(TRIED, null);
+        window.siEarly = fetch('game.riv', { cache: 'no-cache' }); // start the download while the runtime loads
+        return Promise.resolve('isolated');
+      }
+      if (!sw || !window.isSecureContext) return Promise.resolve('not isolated: no service workers in this browser window');
+      return sw.register('sw.js', { scope: './' }).then(function () {
+        return sw.ready;
+      }).then(function () {
+        if (reloadOnce()) return hold;
+        return 'not isolated: still not isolated after reloading through the service worker';
+      }).catch(function (e) {
+        return 'not isolated: the service worker didn’t register (' + e + ')';
+      });
+    })();
+  </script>
+  <link rel="stylesheet" href="style.css?v=1">
+</head>
+<body>
+  <!-- Rive draws the site on this canvas. With semanticsMode on (app.js), the runtime lays an accessibility layer of
+       real elements (buttons, headings, text fields, a live region) over it, which screen readers and Tab use. -->
+  <main id="site">
+    <canvas id="canvas"></canvas>
+  </main>
+
+  <!-- The first and last stops for the keyboard: hidden until focused, like a skip link. -->
+  <a class="reveal-on-focus" href="accessibility.html">Accessibility of this page</a>
+
+  <div id="status" role="status" aria-live="polite">
+    <p class="mark" aria-hidden="true">VECTOR/9</p>
+    <div class="bar" aria-hidden="true"><span></span></div>
+    <p class="message">Loading…</p>
+  </div>
+
+  <noscript><p class="noscript">This page needs JavaScript to run. <a href="accessibility.html">About this page</a>.</p></noscript>
+
+  <!-- Rive's web runtime, pinned to an exact version. The threaded build: on a cross-origin isolated page it loads
+       rive_threads.wasm, which runs the synth; elsewhere it falls back to the build without threads. -->
+  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2-threads@2.49.4/rive.js" crossorigin="anonymous"></script>
+  <script src="app.js?v=1"></script>
+</body>
+</html>

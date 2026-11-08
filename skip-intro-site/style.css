@@ -1,0 +1,76 @@
+:root {
+  --surround: #07090c;
+  --field: #111a22;
+  --text: #e4e9ee;
+  --dim: #a3adb6;
+  --cyan: #5cc3e0;
+  --orange: #ff7a2e;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--surround);
+  color: var(--text);
+  font: 15px/1.5 ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  overscroll-behavior: none;
+}
+
+/* the site fills the window (Fit.Layout, app.js); the accessibility layer is placed over the canvas inside #site */
+#site {
+  position: fixed;
+  inset: 0;
+}
+#canvas {
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  display: block;
+  touch-action: none; /* drags are the site's: drawing, spinning the orbit, scrolling the pages */
+  outline: none;
+}
+
+/* a link that only shows while it has keyboard focus */
+.reveal-on-focus {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 4;
+  padding: 10px 14px;
+  background: var(--field);
+  color: var(--text);
+  border: 3px solid #fff;
+  transform: translateY(200%);
+}
+.reveal-on-focus:focus { transform: none; }
+
+#status {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: 16px;
+  padding: 24px;
+  text-align: center;
+  background: var(--surround);
+  z-index: 3;
+  transition: opacity 0.3s;
+}
+#status[hidden] { display: none; }
+#status.leaving { opacity: 0; pointer-events: none; }
+#status .mark { margin: 0; font-size: 28px; letter-spacing: 0.35em; color: var(--text); }
+#status .bar { width: min(70vw, 300px); height: 4px; background: #1d2a35; }
+#status .bar span { display: block; width: 0; height: 100%; background: var(--orange); transition: width 0.15s; }
+#status .message { margin: 0; color: var(--dim); max-width: 30em; }
+#status.error .bar { display: none; }
+
+.noscript { position: fixed; inset: auto 16px 16px; z-index: 5; }
+a { color: var(--cyan); }
+
+@media (prefers-reduced-motion: reduce) {
+  #status, #status .bar span { transition: none; }
+}

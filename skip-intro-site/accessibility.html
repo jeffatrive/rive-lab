@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Accessibility: VECTOR/9 Skip Intro</title>
+  <meta name="theme-color" content="#07090c">
+  <style>
+    :root { --bg: #07090c; --text: #e4e9ee; --dim: #b4bec7; --cyan: #5cc3e0; --orange: #ff7a2e; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.6 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    main { max-width: 44rem; margin: 0 auto; padding: 48px 20px 72px; }
+    h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 8px; letter-spacing: 0.02em; }
+    h2 { font-size: 1.2rem; margin: 2.2em 0 0.4em; color: var(--orange); }
+    p, li { color: var(--dim); }
+    strong, kbd { color: var(--text); }
+    kbd { font: 0.9em ui-monospace, Menlo, monospace; border: 1px solid #3a4652; border-radius: 4px; padding: 1px 6px; }
+    a { color: var(--cyan); }
+    a:focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+    ul { padding-left: 1.2em; }
+    .back { display: inline-block; margin-bottom: 28px; }
+  </style>
+</head>
+<body>
+  <main>
+    <a class="back" href="./">Back to the site</a>
+    <h1>Accessibility</h1>
+    <p>VECTOR/9 is a made-up 2003 design agency, built as a Rive showcase: an intro, a soundtrack, an orbiting menu and
+      four pages, all drawn in one Rive file on a canvas. This page says what works for people using a keyboard, a
+      screen reader or reduced motion, and what doesn't yet. The aim is WCAG 2.2 level AA.</p>
+
+    <h2>Keyboard</h2>
+    <ul>
+      <li><kbd>Tab</kbd> and <kbd>Shift</kbd>+<kbd>Tab</kbd> move between controls; a white ring shows where you are.</li>
+      <li><kbd>Enter</kbd> or <kbd>Space</kbd> presses a button or flips a switch.</li>
+      <li><kbd>Escape</kbd> skips the intro, closes a project, and goes back from a page to the menu.</li>
+      <li>On the LAB page, the arrow keys spin the 3D emblem once it has focus.</li>
+      <li>When a screen or page opens, focus moves to its heading. When a page or project closes, focus goes back to
+        what opened it.</li>
+    </ul>
+
+    <h2>Screen readers</h2>
+    <p>The page turns on Rive's accessibility layer, so the site is made of real headings, buttons, switches, text
+      fields, a dialog and a status message rather than a blank canvas:</p>
+    <ul>
+      <li>each screen and page has a heading, and the projects, skills and studios are in labeled groups;</li>
+      <li>the menu tags, project cards and LAB settings, which are drawn by scripts, have labeled controls in their
+        place;</li>
+      <li>the project details open as a dialog that holds focus until it closes;</li>
+      <li>the contact form's fields are labeled, and its "sending" steps are announced as they happen.</li>
+    </ul>
+
+    <h2>Motion</h2>
+    <p>The <strong>MOTION</strong> switch at the top right turns off the site's animation. It starts off if your device
+      asks for reduced motion. With motion off:</p>
+    <ul>
+      <li>the intro, which has two bright flashes, is skipped;</li>
+      <li>the menu holds still, and pages change with a quick fade instead of the scan and the fly-in;</li>
+      <li>pages appear all at once, and the project pictures only play while you point at or focus them;</li>
+      <li>the LAB emblem stops spinning, and the music readout stops scrolling.</li>
+    </ul>
+
+    <h2>Sound</h2>
+    <p>Nothing plays until you choose "Enter with sound". The <strong>SOUND</strong> switch and the music player's
+      <strong>STOP</strong> button are always at the top right. The sound is music and effects only; there's no
+      speech.</p>
+
+    <h2>Color and size</h2>
+    <ul>
+      <li>Text meets the 4.5:1 contrast ratio, except decorative readouts that aren't needed to use the site, and
+        the outlines of the text fields meet 3:1.</li>
+      <li>The layout reflows to fit the window, so browser zoom on a computer makes everything larger.</li>
+    </ul>
+
+    <h2>Known gaps</h2>
+    <ul>
+      <li>On phones and tablets, pinch zoom doesn't work: drags on the site are used for drawing, spinning and
+        scrolling.</li>
+      <li>The drawing toy on the loading screen needs a pointer or a finger. It's optional; loading carries on
+        without it.</li>
+      <li>The 3D emblem and the project pictures are described in words; their details aren't.</li>
+      <li>The screen-reader experience has been checked with the browser's accessibility tools and the keyboard,
+        but not yet with VoiceOver, NVDA or JAWS.</li>
+    </ul>
+
+    <p><a href="./">Back to the site</a></p>
+  </main>
+</body>
+</html>

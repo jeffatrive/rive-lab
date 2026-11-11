@@ -47,6 +47,16 @@ and waits for it. `--no-build` uploads the `game.riv` that's already there; `--y
 `GAME_DIR=~/Documents/Dev/rive-lab/snack-storm/work/host snack-storm-play/publish.sh` publishes from another copy of
 the game instead (a test snapshot).
 
+## Loading animation and link preview
+
+- `loader.riv` (about 7 KB) is the critter running to a taco while `game.riv` downloads. Its source is
+  `snack-storm/loader` (Editor file 2719829, linked so builds have no watermark): `./build.sh` there regenerates it from
+  the game's Critter and Icon Taco art and copies it here. `index.html` starts both downloads early (`window.ssEarly`);
+  `app.js` writes the download percentage into the loader's `progress`. If `loader.riv` fails, the plain bar shows.
+  Try it with `?mute=1&loaderdemo=1` (a fake 6 s download; also `loaderdemo=nolength`, `loaderdemo=fail`).
+- `og.png` (1200 x 630) is the link preview the Open Graph / Twitter tags in `index.html` point at.
+- Both go live with a normal commit + push, like any page change.
+
 ## The save bridge (what the game and the page agree on)
 
 GameVM properties the page uses:

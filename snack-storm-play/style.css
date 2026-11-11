@@ -62,7 +62,20 @@ html, body {
   paint-order: stroke fill;
   text-shadow: 0 5px 0 var(--ink);
 }
+/* the loading animation (loader.riv, app.js): its space is kept from the start, so the title doesn't move when it
+   appears */
+#loader {
+  display: block;
+  width: min(88vw, 420px);
+  aspect-ratio: 400 / 150;
+  opacity: 0;
+  transition: opacity 0.25s;
+}
+#loader.on { opacity: 1; }
+#status.no-loader #loader, #status.error #loader { display: none; }
+/* the plain bar: only when loader.riv didn't load */
 #status .bar {
+  display: none;
   width: min(70vw, 320px);
   height: 14px;
   border: 3px solid var(--ink);
@@ -78,10 +91,11 @@ html, body {
   transition: width 0.15s;
 }
 #status .message { margin: 0; color: #e6e2ff; font-weight: 600; max-width: 28em; }
+#status.no-loader .bar { display: block; }
 #status.error .bar { display: none; }
 #status.error .message { color: var(--error); }
 
 @media (prefers-reduced-motion: reduce) {
-  #status { transition: none; }
+  #status, #loader { transition: none; }
   #status .bar span { transition: none; }
 }

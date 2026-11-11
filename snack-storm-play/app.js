@@ -14,19 +14,28 @@
 //             reload doesn't reset again).
 //   ?coi=0    runs without the service worker (no threads, no sound).
 //   ?data=name=value  sets a GameVM property before the first frame, like rive-cli's --data= (testing; repeatable).
+//   ?loaderdemo=1  tests the loading animation (a local download is instant): stretches the reported download over
+//             about 6 s; ?loaderdemo=nolength does the same as if the server sent no size; ?loaderdemo=fail ends in
+//             the error.
 // The page also writes GameVM `safeTop` (the top safe-area inset in CSS px, for a phone notch) before the first frame
 // and on resize, and `hasSave` (whether a save was handed over) if the build has it.
 (function () {
   'use strict';
 
   var GAME_FILE = 'game.riv';
+  // a critter running along a progress bar toward a taco while game.riv downloads (snack-storm/loader: about 20 KB,
+  // no scripts)
+  var LOADER_FILE = 'loader.riv';
   var SAVE_KEY = 'snackStorm.save';
   var params = new URLSearchParams(window.location.search);
   var muted = params.get('mute') === '1';
+  var demo = params.get('loaderdemo'); // '1', 'nolength' or 'fail'; nothing without it
+  var DEMO_MS = 6000;
 
   var canvas = document.getElementById('game');
   var statusBox = document.getElementById('status');
-  var bar = statusBox.querySelector('.bar span');
+  var loaderCanvas = document.getElementById('loader');
+  var bar = statusBox.querySelector('.bar span'); // the plain bar: only shown when loader.riv doesn't load
   var riveInstance = null;
   var saveProp = null; // GameVM `save` (string)
   var silentProp = null; // GameVM `silent` (number, > 0 = no sound)
@@ -74,6 +83,7 @@
   // ------------------------------------------------------------ page
 
   function showStatus(message, isError) {
+    if (isError) stopLoader();
     statusBox.hidden = false;
     statusBox.classList.toggle('error', !!isError);
     statusBox.querySelector('.message').textContent = message;
@@ -136,28 +146,141 @@
     }).catch(function () { /* (only a report) */ });
   }
 
+  // ------------------------------------------------------------ the download and the loading animation
+  // While game.riv downloads, loader.riv plays under the title: a critter runs along a progress bar toward a taco, and
+  // chomps it at 100. The page streams the download and writes the percentage into the loader's view model number
+  // `progress` (0-100). When the server sends no size, the percentage only creeps towards 90 until the file is in.
+  // (Smashabout's loader, smashabout/app.js, ported.) If loader.riv doesn't load, the plain .bar shows instead.
+
+  var download = { loaded: 0, total: 0, done: false, started: 0 };
+  var loader = { rive: null, progress: null, fullAt: 0, timer: null };
+  var loadingOver = false; // the game started or failed: the loader is no longer wanted
+  var FINAL_CHOMP_MS = 600; // about two of the critter's chomps (16 frames each) after the loader reaches 100
+
+  // How far along to show, 0-100. ?loaderdemo stretches the reported part over DEMO_MS.
+  function shownProgress() {
+    if (download.done) return 100;
+    var elapsed = performance.now() - download.started;
+    var p;
+    if (download.total > 0 && demo !== 'nolength') {
+      p = Math.min(99, download.loaded / download.total * 100); // 100 is for when it's really in
+    } else {
+      p = 90 * (1 - Math.exp(-elapsed / (demo ? DEMO_MS / 2 : 8000))); // no size: creep, never claim the end
+    }
+    return demo ? Math.min(p, 100 * elapsed / DEMO_MS) : p;
+  }
+
+  function showProgress() {
+    var p = shownProgress();
+    bar.style.width = p + '%';
+    if (!loader.rive) return;
+    if (p >= 100 && !loader.fullAt) loader.fullAt = performance.now();
+    loader.progress.value = p;
+  }
+
+  // A download index.html started early (on an isolated page), once; else a new fetch.
+  function fetchEarly(url, init) {
+    var early = window.ssEarly;
+    var p = early && early[url];
+    if (p) {
+      early[url] = null;
+      return p;
+    }
+    return fetch(url, init);
+  }
+
+  function noLoader() {
+    statusBox.classList.add('no-loader'); // the plain bar instead
+  }
+
+  function startLoader() {
+    fetchEarly(LOADER_FILE).then(function (r) {
+      if (!r.ok) throw new Error(LOADER_FILE + ': ' + r.status);
+      return r.arrayBuffer();
+    }).then(function (buffer) {
+      // the game's bytes already in (a cached visit): straight to the game, no animation
+      if (loadingOver || download.done) return;
+      var instance = new rive.Rive({
+        buffer: buffer,
+        canvas: loaderCanvas,
+        autoplay: true,
+        autoBind: true,
+        stateMachine: 'Loading',
+        layout: new rive.Layout({ fit: rive.Fit.Contain, alignment: rive.Alignment.Center }),
+        onLoad: function () {
+          var vm = instance.viewModelInstance;
+          var progress = vm && vm.number('progress');
+          if (loadingOver || download.done || !progress) {
+            instance.cleanup();
+            if (!progress && !loadingOver) noLoader();
+            return;
+          }
+          loader.rive = instance;
+          loader.progress = progress;
+          instance.resizeDrawingSurfaceToCanvas(pixelRatio());
+          showProgress();
+          loaderCanvas.classList.add('on');
+          window.addEventListener('resize', function () {
+            if (loader.rive) loader.rive.resizeDrawingSurfaceToCanvas(pixelRatio());
+          });
+        },
+        onLoadError: noLoader
+      });
+    }).catch(function (e) {
+      console.warn('Snack Storm: no loading animation', e); // the plain bar will do
+      noLoader();
+    });
+  }
+
+  function stopLoader() {
+    loadingOver = true;
+    clearInterval(loader.timer);
+    if (loader.rive) loader.rive.cleanup();
+    loader.rive = null;
+    loaderCanvas.classList.remove('on');
+  }
+
+  // The game is up: let the critter chomp the taco a couple of times, then fade the loading screen out.
+  function finishLoading() {
+    download.done = true;
+    showProgress();
+    var wait = loader.rive ? Math.max(0, loader.fullAt + FINAL_CHOMP_MS - performance.now()) : 0;
+    setTimeout(function () {
+      hideStatus();
+      setTimeout(stopLoader, 300); // (after the fade)
+    }, wait);
+  }
+
+  // A response's bytes, counting them as they arrive (into one buffer when the size is known, so the file isn't held
+  // twice).
   function readCounting(response) {
     var total = parseInt(response.headers.get('Content-Length'), 10) || 0;
+    // a compressed response's Content-Length is the compressed size, not the bytes read
     if (response.headers.get('Content-Encoding')) total = 0;
-    if (!response.body || !response.body.getReader || !total) return response.arrayBuffer();
+    download.loaded = 0;
+    download.total = total;
+    if (!response.body || !response.body.getReader) return response.arrayBuffer();
     var reader = response.body.getReader();
-    var whole = new Uint8Array(total);
-    var loaded = 0;
+    var whole = total ? new Uint8Array(total) : null;
     var chunks = [];
     var pump = function () {
       return reader.read().then(function (step) {
         if (step.done) {
-          if (loaded === total && !chunks.length) return whole.buffer;
-          var out = new Uint8Array(loaded);
-          out.set(whole.subarray(0, Math.min(loaded, total)));
-          var at = Math.min(loaded, total);
+          if (whole && download.loaded === total && !chunks.length) return whole.buffer;
+          var out = new Uint8Array(download.loaded);
+          var at = 0;
+          if (whole) { out.set(whole.subarray(0, Math.min(download.loaded, total))); at = Math.min(download.loaded, total); }
           chunks.forEach(function (c) { out.set(c, at); at += c.length; });
           return out.buffer;
         }
         var chunk = step.value;
-        if (loaded + chunk.length <= total && !chunks.length) whole.set(chunk, loaded); else chunks.push(chunk);
-        loaded += chunk.length;
-        bar.style.width = Math.min(100, loaded / total * 100) + '%';
+        if (whole && download.loaded + chunk.length <= total && !chunks.length) {
+          whole.set(chunk, download.loaded);
+        } else {
+          chunks.push(chunk); // more than the header said (or no size): keep the rest aside
+        }
+        download.loaded += chunk.length;
+        showProgress();
         return pump();
       });
     };
@@ -165,11 +288,24 @@
   }
 
   function loadGameFile() {
-    var early = window.ssEarly;
-    window.ssEarly = null;
-    return (early || fetch(GAME_FILE, { cache: 'no-cache' })).then(function (r) { // no-cache: revalidate (a 304 when unchanged)
+    download.started = performance.now();
+    // the creep and the demo move without new bytes, so keep writing the progress
+    loader.timer = setInterval(showProgress, 100);
+    // no-cache: revalidate every load (a 304 when unchanged), so a new game shows at once
+    var bytes = fetchEarly(GAME_FILE, { cache: 'no-cache' }).then(function (r) {
       if (!r.ok) throw new Error(GAME_FILE + ': ' + r.status);
       return readCounting(r);
+    });
+    if (!demo) return bytes;
+    // ?loaderdemo: hold the bytes until the stretched progress is done (or fail halfway, for the error)
+    return bytes.then(function (buffer) {
+      return new Promise(function (resolve, reject) {
+        var left = Math.max(0, download.started + DEMO_MS - performance.now());
+        setTimeout(function () {
+          if (demo === 'fail') reject(new Error('loaderdemo=fail'));
+          else resolve(buffer);
+        }, demo === 'fail' ? left / 2 : left);
+      });
     });
   }
 
@@ -355,8 +491,10 @@
       return;
     }
     var file = null;
+    startLoader();
     loadGameFile().then(function (buffer) {
-      bar.style.width = '100%';
+      download.done = true; // the loader's 100: the critter reaches the taco while the game file is read
+      showProgress();
       file = new rive.RiveFile({ buffer: buffer, enableGPUCanvas: true });
       return file.init();
     }).then(function () {
@@ -378,7 +516,7 @@
           instance.play();
           reportAudio();
           instance.resizeDrawingSurfaceToCanvas(pixelRatio());
-          hideStatus();
+          finishLoading();
           canvas.focus({ preventScroll: true });
         },
         onLoadError: function () {

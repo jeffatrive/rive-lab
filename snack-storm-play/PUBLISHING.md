@@ -85,10 +85,11 @@ a save (`SS<digits>` then dot-separated numbers).
 ## Icons
 
 `apple-touch-icon.png` (180), `icon-192.png` and `icon-512.png` are the game's `App Icon` artboard rendered headless
-at its native 256 px and resized (the 512 is an upscale; redo it bigger if the icon gets real art):
+at 1024 px and resized down (redo them whenever the App Icon art changes; last done 2026-11-11):
 
 ```
-cd snack-storm/game && rive . --artboard="App Icon" --screenshot=/tmp/icon256.png --advance=0.1s
+cd snack-storm/game && rive . --artboard="App Icon" --viewport=1024x1024 --fit=contain --screenshot=/tmp/icon1024.png --advance=0.1s
+python3 -c "from PIL import Image; im=Image.open('/tmp/icon1024.png').convert('RGB'); [im.resize((s,s),Image.LANCZOS).save(n) for n,s in (('apple-touch-icon.png',180),('icon-192.png',192),('icon-512.png',512))]"
 ```
 
 iPhones only pick up a new icon when you add the page to the Home Screen again.

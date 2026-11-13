@@ -198,8 +198,9 @@
       if (!r.ok) throw new Error(LOADER_FILE + ': ' + r.status);
       return r.arrayBuffer();
     }).then(function (buffer) {
-      // the game's bytes already in (a cached visit): straight to the game, no animation
-      if (loadingOver || download.done) return;
+      // (only once the game is up does it stop: a fast or cached download still leaves the game file to decode,
+      // which takes seconds on a phone, so the critter chomps the taco until then)
+      if (loadingOver) return;
       var instance = new rive.Rive({
         buffer: buffer,
         canvas: loaderCanvas,
@@ -210,7 +211,7 @@
         onLoad: function () {
           var vm = instance.viewModelInstance;
           var progress = vm && vm.number('progress');
-          if (loadingOver || download.done || !progress) {
+          if (loadingOver || !progress) {
             instance.cleanup();
             if (!progress && !loadingOver) noLoader();
             return;

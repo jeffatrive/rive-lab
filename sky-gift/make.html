@@ -1,0 +1,391 @@
+<!doctype html>
+<html lang="en" data-sky="./">
+<!-- data-sky: the sky page this form links to (index.html when deployed). -->
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Give someone their sky</title>
+  <meta name="description" content="Make a link that opens on the real night sky over one place at one moment.">
+  <meta name="theme-color" content="#0b1226">
+  <meta name="robots" content="noindex">
+  <style>
+    @font-face { font-family: "Cormorant"; src: url("CormorantGaramond-Latin.ttf") format("truetype"); font-display: swap; }
+    :root { --bg: #0b1226; --panel: #121b36; --ink: #f4ecd8; --muted: #a7a8bf; --gold: #e3c27a; --gold-ink: #1a1405;
+      --line: #2a3558; --bad: #f2a08c; }
+    * { box-sizing: border-box; }
+    html { background: var(--bg); }
+    body { margin: 0; color: var(--ink); font: 16px/1.5 system-ui, sans-serif;
+      background: radial-gradient(120% 60% at 50% 0%, #17224a 0%, var(--bg) 70%) fixed; min-height: 100vh; }
+    main { max-width: 520px; margin: 0 auto; padding: 32px 16px calc(48px + env(safe-area-inset-bottom)); }
+    .kicker { font: 600 12px/1 system-ui, sans-serif; letter-spacing: .22em; color: var(--gold); margin: 0 0 10px; }
+    h1 { font: 500 40px/1.05 "Cormorant", Georgia, serif; margin: 0 0 10px; }
+    p.lede { color: var(--muted); margin: 0 0 24px; }
+    .panel { background: color-mix(in srgb, var(--panel) 88%, transparent); border: 1px solid var(--line);
+      border-radius: 14px; padding: 18px 16px; margin-bottom: 14px; }
+    .panel h2 { font: 500 22px/1.2 "Cormorant", Georgia, serif; margin: 0 0 12px; color: var(--gold); }
+    label { display: block; font-weight: 600; font-size: 14px; margin: 0 0 6px; }
+    .field + .field { margin-top: 14px; }
+    .row { display: grid; grid-template-columns: 1.3fr 1fr; gap: 10px; }
+    .row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; }
+    input, select { width: 100%; padding: 11px 12px; border-radius: 10px; border: 1px solid var(--line);
+      background: #0d1430; color: var(--ink); font: inherit; color-scheme: dark; min-height: 46px; }
+    input::placeholder { color: #6c7092; }
+    .count { float: right; color: var(--muted); font-weight: 400; font-size: 13px; }
+    .hint { color: var(--muted); font-size: 13px; margin: 6px 0 0; }
+    .hint.warn { color: var(--bad); }
+    .combo { position: relative; }
+    .combo ul { position: absolute; z-index: 5; left: 0; right: 0; top: calc(100% + 4px); margin: 0; padding: 4px;
+      list-style: none; background: #101938; border: 1px solid var(--line); border-radius: 10px;
+      box-shadow: 0 12px 30px rgba(0, 0, 0, .45); max-height: 320px; overflow: auto; }
+    .combo li { padding: 9px 10px; border-radius: 7px; cursor: pointer; }
+    .combo li small { color: var(--muted); margin-left: 6px; }
+    .combo li[aria-selected="true"], .combo li:hover { background: #1d2a55; }
+    .combo li.none { color: var(--muted); cursor: default; background: none; }
+    .tzline { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin-top: 10px; font-size: 14px; }
+    .tzline b { color: var(--gold); font-weight: 600; }
+    details { margin-top: 12px; }
+    summary { cursor: pointer; color: var(--muted); font-size: 14px; }
+    details[open] summary { margin-bottom: 12px; }
+    .linkish { background: none; border: 0; padding: 0; color: var(--gold); font: inherit; font-size: 13px;
+      text-decoration: underline; cursor: pointer; min-height: 0; }
+    .summary { font: 500 21px/1.3 "Cormorant", Georgia, serif; margin: 4px 0 16px; min-height: 1.3em; }
+    .summary span { color: var(--muted); font: 14px/1.4 system-ui, sans-serif; display: block; margin-top: 2px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; }
+    button.btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 999px;
+      padding: 12px 20px; font: 600 16px system-ui, sans-serif; cursor: pointer; min-height: 46px; }
+    .primary { background: var(--gold); color: var(--gold-ink); border: 0; }
+    .ghost { background: transparent; color: var(--ink); border: 1px solid var(--line); }
+    button:disabled { opacity: .45; cursor: not-allowed; }
+    :focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+    #status { color: var(--muted); font-size: 14px; margin: 12px 0 0; min-height: 1.5em; }
+    footer { color: #6c7092; font-size: 12px; margin-top: 28px; }
+    footer a { color: inherit; }
+    .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  </style>
+</head>
+<body>
+<main>
+  <p class="kicker">THE SKY YOU ARRIVED UNDER</p>
+  <h1>Give someone their sky</h1>
+  <p class="lede">A name, a moment and a place. The link opens on the real sky over that spot at that minute,
+    with their own constellation drawn from its stars. Everything lives in the link; nothing is uploaded.</p>
+
+  <section class="panel" aria-labelledby="h-who">
+    <h2 id="h-who">Who it's for</h2>
+    <div class="field">
+      <label for="name">Their name <span class="count" id="nameCount"></span></label>
+      <input id="name" type="text" maxlength="24" placeholder="Ana" autocomplete="off" autocapitalize="words">
+      <p class="hint" id="nameHint">Their initials become a constellation.</p>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="h-when">
+    <h2 id="h-when">When they arrived</h2>
+    <div class="row">
+      <div><label for="date">Date</label><input id="date" type="date" min="1800-01-01" max="2200-12-31"></div>
+      <div><label for="time">Time</label><input id="time" type="time"></div>
+    </div>
+    <p class="hint">Local time where they were. No exact time? Leave it blank for noon.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="h-where">
+    <h2 id="h-where">Where</h2>
+    <div class="field combo">
+      <label for="place" id="placeLabel">Town or city</label>
+      <input id="place" type="text" placeholder="Start typing a city" autocomplete="off" spellcheck="false"
+        role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="placeList">
+      <ul id="placeList" role="listbox" aria-labelledby="placeLabel" hidden></ul>
+      <p class="hint" id="placeHint">Pick the nearest city on the list; the sky is the same for miles around.</p>
+    </div>
+    <div class="field">
+      <label for="label">Shown on the sky as <span class="count" id="labelCount"></span></label>
+      <input id="label" type="text" maxlength="32" placeholder="Rio de Janeiro" autocomplete="off">
+    </div>
+    <div class="tzline" id="tzline" hidden><span>Clocks there read</span><b id="tzOff"></b><span id="tzName" class="hint" style="margin:0"></span></div>
+    <details id="manual">
+      <summary>Not on the list, or the time zone looks wrong?</summary>
+      <div class="row3">
+        <div><label for="lat">Latitude</label><input id="lat" type="number" step="0.01" min="-90" max="90" inputmode="decimal" placeholder="-22.91"></div>
+        <div><label for="lon">Longitude</label><input id="lon" type="number" step="0.01" min="-180" max="180" inputmode="decimal" placeholder="-43.18"></div>
+        <div><label for="tz">UTC offset</label><select id="tz"></select></div>
+      </div>
+      <p class="hint">North and east are positive. The offset is what clocks there read that day, daylight saving included.
+        <button type="button" class="linkish" id="tzAuto" hidden>Use the city's time zone again</button></p>
+    </details>
+  </section>
+
+  <p class="summary" id="summary" aria-live="polite"></p>
+  <div class="actions">
+    <button class="btn primary" id="preview" disabled>Preview their sky</button>
+    <button class="btn ghost" id="copy" disabled>Copy link</button>
+    <button class="btn ghost" id="share" hidden disabled>Share…</button>
+  </div>
+  <p id="status" role="status"></p>
+
+  <footer>Places: <a href="https://www.geonames.org/">GeoNames</a> (CC BY 4.0).
+    Stars: <a href="https://github.com/astronexus/HYG-Database">HYG Database</a> (CC BY-SA 4.0).</footer>
+</main>
+<script src="sky-link.js"></script>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var SKY_PAGE = document.documentElement.dataset.sky || 'sky.html';
+  var countryName = (function () {
+    try { var dn = new Intl.DisplayNames(['en'], { type: 'region' }); return function (cc) { return dn.of(cc) || cc; }; }
+    catch (e) { return function (cc) { return cc; }; }
+  })();
+
+  // ---- Places (GeoNames, baked by sky/data/bake_places.py) ----
+  var P = null, loading = null;
+  function norm(s) {
+    return s.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+  }
+  function loadPlaces() {
+    if (!loading) loading = fetch('places.txt').then(function (r) {
+      if (!r.ok) throw new Error('places ' + r.status);
+      return r.text();
+    }).then(function (t) {
+      var lines = t.split('\n'), tzs = lines[0].split('\t'), regions = lines[1].split('\t');
+      var p = { name: [], key: [], region: [], cc: [], lat: [], lon: [], tz: [], tzs: tzs, regions: regions };
+      for (var i = 2; i < lines.length; i++) {
+        var f = lines[i].split('\t');
+        if (f.length < 6) continue;
+        p.name.push(f[0]); p.key.push(norm(f[0])); p.region.push(+f[1]); p.cc.push(f[2]);
+        p.lat.push(+f[3]); p.lon.push(+f[4]); p.tz.push(+f[5]);
+      }
+      P = p;
+      return p;
+    });
+    return loading;
+  }
+  function where(i) {
+    var r = P.regions[P.region[i]], c = countryName(P.cc[i]);
+    return (r && r !== P.name[i] ? r + ', ' : '') + c;
+  }
+  // "springfield, illinois": the part before a comma matches the city name
+  // (prefix first, then word start, then anywhere); the rest must appear in
+  // its region or country. Rows are biggest first, so ties go to size.
+  function search(q, max) {
+    var parts = q.split(','), a = norm(parts[0]), b = norm(parts.slice(1).join(' '));
+    if (a.length < 2) return [];
+    var buckets = [[], [], []], total = 0;
+    for (var i = 0; i < P.key.length && buckets[0].length < max; i++) {
+      var k = P.key[i], at = k.indexOf(a), rank;
+      if (at < 0) continue;
+      rank = at === 0 ? 0 : k.charAt(at - 1) === ' ' ? 1 : 2;
+      if (buckets[rank].length >= max) continue;
+      if (b && norm(where(i)).indexOf(b) < 0) continue;
+      buckets[rank].push(i); total++;
+    }
+    return buckets[0].concat(buckets[1], buckets[2]).slice(0, max);
+  }
+
+  // ---- Time zone: the UTC offset clocks showed at a wall time in an IANA zone ----
+  var fmts = {};
+  function zoneMinutes(tz, ms) {
+    var f = fmts[tz] || (fmts[tz] = new Intl.DateTimeFormat('en-US', { timeZone: tz, hourCycle: 'h23',
+      year: 'numeric', month: 'numeric', day: 'numeric', hour: 'numeric', minute: 'numeric', second: 'numeric' }));
+    var v = {};
+    f.formatToParts(new Date(ms)).forEach(function (p) { v[p.type] = +p.value; });
+    var wall = Date.UTC(v.year, v.month - 1, v.day, v.hour % 24, v.minute, v.second);
+    return (wall - Math.floor(ms / 1000) * 1000) / 60000;
+  }
+  function offsetAt(tz, w) {
+    var guess = Date.UTC(w.year, w.month - 1, w.day, w.hour, w.minute);
+    var o1 = zoneMinutes(tz, guess), o2 = zoneMinutes(tz, guess - o1 * 60000);
+    return o2;  // minutes ahead of UTC (a skipped spring-forward hour takes the later offset)
+  }
+  function offText(min) {
+    var s = min < 0 ? '−' : '+', a = Math.abs(Math.round(min)), h = Math.floor(a / 60), m = a % 60;
+    return 'UTC' + s + h + (m ? ':' + (m < 10 ? '0' : '') + m : '');
+  }
+  // Offsets in use anywhere since 1970, plus whatever a city produces (old local mean times).
+  var OFFSETS = [-720, -660, -600, -570, -540, -480, -420, -360, -300, -270, -240, -210, -180, -150, -120, -60, 0,
+    60, 120, 180, 210, 240, 270, 300, 330, 345, 360, 390, 420, 480, 525, 540, 570, 600, 630, 660, 720, 765, 780, 840];
+  function fillOffsets(extra) {
+    var list = OFFSETS.slice(), sel = $('tz'), keep = sel.value;
+    if (extra !== null && list.indexOf(extra) < 0) { list.push(extra); list.sort(function (x, y) { return x - y; }); }
+    sel.innerHTML = '<option value="">Pick…</option>' + list.map(function (m) {
+      return '<option value="' + m + '">' + offText(m) + '</option>';
+    }).join('');
+    sel.value = keep;
+  }
+  fillOffsets(null);
+
+  // ---- State ----
+  var city = -1;          // index into P, or -1
+  var tzName = null;      // the city's IANA zone
+  var tzManual = false;   // the sender picked the offset
+  function when() {
+    var d = /^(\d{4})-(\d{2})-(\d{2})$/.exec($('date').value);
+    if (!d) return null;
+    var t = /^(\d{2}):(\d{2})/.exec($('time').value);
+    return { year: +d[1], month: +d[2], day: +d[3], hour: t ? +t[1] : 12, minute: t ? +t[2] : 0, guessed: !t };
+  }
+  function num(id, lo, hi) {
+    var v = $(id).value;
+    if (v === '') return null;
+    var x = +v;
+    return isFinite(x) && x >= lo && x <= hi ? x : null;
+  }
+  function currentOffset(w) {
+    if (!tzManual && tzName && w) {
+      var m = offsetAt(tzName, w);
+      fillOffsets(m);
+      $('tz').value = String(m);
+      return m;
+    }
+    return $('tz').value === '' ? null : +$('tz').value;
+  }
+  function sky() {
+    var w = when(), lat = num('lat', -90, 90), lon = num('lon', -180, 180), off = currentOffset(w);
+    var name = $('name').value.trim(), place = $('label').value.trim();
+    var ok = !!(w && name && lat !== null && lon !== null && off !== null && w.year >= 1800 && w.year <= 2200);
+    return { ok: ok, name: name, place: place, when: w, tz: off === null ? null : Math.round(off / 60 * 10000) / 10000,
+      lat: lat === null ? null : Math.round(lat * 100) / 100, lon: lon === null ? null : Math.round(lon * 100) / 100, off: off };
+  }
+  function update() {
+    $('nameCount').textContent = $('name').value.length + '/24';
+    $('labelCount').textContent = $('label').value.length + '/32';
+    // The sky's lettering is a Latin font; other scripts would draw as blanks.
+    var odd = /[^\u0000-ɏḀ-ỿ’]/.test($('name').value + $('label').value);
+    $('nameHint').textContent = odd ? 'Only Latin letters show in the sky for now; other scripts would come out blank.'
+      : 'Their initials become a constellation.';
+    $('nameHint').classList.toggle('warn', odd);
+    var s = sky();
+    $('tzline').hidden = s.off === null;
+    if (s.off !== null) {
+      $('tzOff').textContent = offText(s.off);
+      $('tzName').textContent = tzManual || !tzName ? '(set by hand)' : tzName.replace(/_/g, ' ') + ', that day';
+    }
+    $('tzAuto').hidden = !(tzManual && tzName);
+    ['preview', 'copy', 'share'].forEach(function (id) { $(id).disabled = !s.ok; });
+    var parts = [];
+    if (!s.name) parts.push('their name');
+    if (!s.when) parts.push('a date');
+    if (s.lat === null || s.lon === null) parts.push('a place');
+    else if (s.off === null) parts.push('a UTC offset');
+    if (s.ok) {
+      $('summary').innerHTML = '';
+      $('summary').append('For ' + s.name);
+      var sub = document.createElement('span');
+      sub.textContent = (s.place || 'Unnamed place') + ' · ' + SkyLink.dateText(s.when) +
+        (s.when.guessed ? ' (time unknown)' : '') + ' · ' + offText(s.off);
+      $('summary').append(sub);
+    } else {
+      $('summary').innerHTML = '<span>Still needed: ' + parts.join(', ') + '.</span>';
+    }
+    return s;
+  }
+  function link(s) {
+    return new URL(SKY_PAGE, location.href).href.replace(/[?#].*$/, '') + '#' + SkyLink.encode(s);
+  }
+
+  // ---- Place combobox ----
+  var input = $('place'), list = $('placeList'), results = [], active = -1;
+  function close() { list.hidden = true; input.setAttribute('aria-expanded', 'false'); input.removeAttribute('aria-activedescendant'); active = -1; }
+  function show(q) {
+    if (!P) { loadPlaces().then(function () { if (document.activeElement === input) show(input.value); }); return; }
+    results = search(q, 8);
+    if (norm(q).length < 2) { close(); return; }
+    list.innerHTML = '';
+    if (!results.length) {
+      var li = document.createElement('li'); li.className = 'none'; li.textContent = 'No city by that name. Try a nearby one, or set it by hand below.';
+      list.append(li);
+    }
+    results.forEach(function (i, n) {
+      var li = document.createElement('li'), sm = document.createElement('small');
+      li.id = 'opt' + n; li.setAttribute('role', 'option'); li.setAttribute('aria-selected', 'false');
+      li.textContent = P.name[i]; sm.textContent = where(i); li.append(sm);
+      li.addEventListener('pointerdown', function (e) { e.preventDefault(); choose(i); });
+      list.append(li);
+    });
+    list.hidden = false; input.setAttribute('aria-expanded', 'true'); active = -1;
+  }
+  function mark(n) {
+    var opts = list.querySelectorAll('[role=option]');
+    opts.forEach(function (o, k) { o.setAttribute('aria-selected', k === n ? 'true' : 'false'); });
+    active = n;
+    if (n >= 0) { input.setAttribute('aria-activedescendant', 'opt' + n); opts[n].scrollIntoView({ block: 'nearest' }); }
+  }
+  function choose(i) {
+    city = i; tzName = P.tzs[P.tz[i]]; tzManual = false;
+    input.value = P.name[i] + ', ' + where(i);
+    $('label').value = P.name[i].slice(0, 32);
+    $('lat').value = P.lat[i].toFixed(2); $('lon').value = P.lon[i].toFixed(2);
+    close(); update();
+  }
+  input.addEventListener('focus', loadPlaces);
+  input.addEventListener('input', function () { show(input.value); });
+  input.addEventListener('keydown', function (e) {
+    var n = list.querySelectorAll('[role=option]').length;
+    if (e.key === 'ArrowDown' && n) { e.preventDefault(); if (list.hidden) show(input.value); mark((active + 1) % n); }
+    else if (e.key === 'ArrowUp' && n) { e.preventDefault(); mark((active - 1 + n) % n); }
+    else if (e.key === 'Enter' && !list.hidden && results.length) { e.preventDefault(); choose(results[Math.max(active, 0)]); }
+    else if (e.key === 'Escape') close();
+  });
+  input.addEventListener('blur', function () { setTimeout(close, 120); });
+
+  // ---- Fields ----
+  ['name', 'label', 'date', 'time'].forEach(function (id) { $(id).addEventListener('input', update); });
+  ['lat', 'lon'].forEach(function (id) {
+    $(id).addEventListener('input', function () {
+      // Moved off the city: keep its zone for the offset, but say the place is custom.
+      if (city >= 0) { city = -1; input.value = ''; }
+      update();
+    });
+  });
+  $('tz').addEventListener('change', function () { tzManual = true; update(); });
+  $('tzAuto').addEventListener('click', function () { tzManual = false; update(); });
+
+  // ---- Output ----
+  function status(t) { $('status').textContent = t; }
+  $('preview').addEventListener('click', function () {
+    var s = update(); if (s.ok) window.open(link(s), '_blank', 'noopener');
+  });
+  $('copy').addEventListener('click', function () {
+    var s = update(); if (!s.ok) return;
+    var url = link(s);
+    navigator.clipboard.writeText(url).then(function () { status('Link copied. Send it however you like.'); },
+      function () { status('Could not copy. Use Preview, then copy the address from there.'); });
+  });
+  if (navigator.share) {
+    $('share').hidden = false;
+    $('share').addEventListener('click', function () {
+      var s = update(); if (!s.ok) return;
+      navigator.share({ title: 'The sky you arrived under', text: 'For ' + s.name, url: link(s) }).catch(function () {});
+    });
+  }
+
+  // ---- Start from a link (make.html#t=...): edit a sky someone already made ----
+  var start = SkyLink.decode(location.hash);
+  if (start.name) $('name').value = start.name.slice(0, 24);
+  if (start.when) {
+    var w = start.when, p = function (n) { return (n < 10 ? '0' : '') + n; };
+    $('date').value = w.year + '-' + p(w.month) + '-' + p(w.day);
+    $('time').value = p(w.hour) + ':' + p(w.minute);
+  }
+  if (start.complete) {
+    $('label').value = start.place.slice(0, 32);
+    $('lat').value = start.lat; $('lon').value = start.lon;
+    fillOffsets(Math.round(start.tz * 60)); $('tz').value = String(Math.round(start.tz * 60)); tzManual = true;
+    // Find the city it came from, to get its zone back.
+    loadPlaces().then(function () {
+      for (var i = 0; i < P.name.length; i++) {
+        if (Math.abs(P.lat[i] - start.lat) < 0.006 && Math.abs(P.lon[i] - start.lon) < 0.006) {
+          city = i; tzName = P.tzs[P.tz[i]]; input.value = P.name[i] + ', ' + where(i);
+          tzManual = offsetAt(tzName, start.when) !== Math.round(start.tz * 60);
+          update(); return;
+        }
+      }
+    });
+  }
+  update();
+
+  window.skyMake = { search: function (q) { return loadPlaces().then(function () {
+    return search(q, 8).map(function (i) { return P.name[i] + ', ' + where(i) + ' ' + P.tzs[P.tz[i]]; }); }); },
+    offsetAt: offsetAt, link: function () { var s = update(); return s.ok ? link(s) : null; } };
+})();
+</script>
+</body>
+</html>

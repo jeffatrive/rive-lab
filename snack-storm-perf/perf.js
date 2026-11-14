@@ -1,7 +1,8 @@
 // Snack Storm perf test page: a frame meter and a panel of switches, to find what drops the phone to 30 fps.
 //
-// - The meter (bottom strip) times the page's own animation frames: fps, the average frame, the share of slow frames
-//   (over 20 ms: a missed 60 Hz refresh) and the worst frame, every second, plus the drawing resolution.
+// - The meter (bottom strip) times Rive's own frames (its `advance` event): fps, the average frame, the share of slow
+//   frames (over 20 ms: a missed 60 Hz refresh) and the worst frame, every second, plus the drawing resolution. (v1 timed
+//   the page's requestAnimationFrame, which kept ticking at 60 while Rive drew every other one: 2026-11-14, Jeff's phone.)
 // - The panel (PERF button) sets the drawing resolution (app.js asks ssPerf.ratio()), the game's GameVM `perf` bits
 //   (each turns one part of the frame off; work/perf-uat world.as) and `crowdCap` (the most critters at once).
 // - Every setting is timed while it's on. COPY RESULTS puts a table of them on the clipboard to paste into chat.
@@ -91,7 +92,9 @@
     segLabel = label();
   }
 
-  function frame(t) {
+  // one Rive frame (its advance event)
+  function riveFrame() {
+    var t = performance.now();
     if (last) {
       var dt = t - last;
       if (dt < 250 && document.visibilityState === 'visible') { // (a hidden or stalled page isn't a frame)
@@ -100,13 +103,16 @@
       }
     }
     last = t;
+  }
+
+  function frame(t) {
     if (t - win.t0 >= 1000) {
       if (statsProp) statsText = statsProp.value;
       var c = critters();
       if (c > (seg.crit || 0)) seg.crit = c;
       var fps = win.n ? win.n * 1000 / (t - win.t0) : 0;
       var px = canvas ? canvas.width + '×' + canvas.height : '';
-      meter.textContent = Math.round(fps) + ' fps · avg ' + (win.n ? (win.sum / win.n).toFixed(1) : '-') + ' ms · slow ' +
+      meter.textContent = 'rive ' + Math.round(fps) + ' fps · avg ' + (win.n ? (win.sum / win.n).toFixed(1) : '-') + ' ms · slow ' +
         (win.n ? Math.round(100 * win.slow / win.n) : 0) + '% · worst ' + Math.round(win.worst) + ' ms · ' +
         ratio() + 'x ' + px + (c >= 0 ? ' · ' + c + ' critters' : '');
       meter.className = fps < 50 ? 'bad' : (fps < 58 ? 'meh' : '');
@@ -286,6 +292,7 @@
     connect: function (instance, resizeFn) {
       var vm = instance.viewModelInstance;
       resize = resizeFn;
+      instance.on(rive.EventType.Advance, riveFrame);
       if (vm) {
         perfProp = vm.number('perf');
         capProp = vm.number('crowdCap');

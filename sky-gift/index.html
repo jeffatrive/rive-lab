@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+  <title>The sky you arrived under</title>
+  <!-- A work-in-progress preview (rive-lab/gift, the sky gift prototype): kept out of search results. -->
+  <meta name="robots" content="noindex">
+  <meta property="og:title" content="The sky you arrived under">
+  <meta property="og:description" content="The real night sky over one place at one moment.">
+  <meta name="theme-color" content="#0b1226">
+  <style>
+    html, body { margin: 0; height: 100%; background: #0b1226; color: #fff; font: 12px/1.4 system-ui, sans-serif;
+      overflow: hidden; }
+    canvas { display: block; width: 100vw; height: 100dvh; touch-action: none; -webkit-tap-highlight-color: transparent; }
+    .credit { position: fixed; right: 10px; bottom: calc(6px + env(safe-area-inset-bottom)); margin: 0;
+      color: rgba(227, 194, 122, .38); font-size: 10px; text-align: right; pointer-events: none; }
+    .credit a { color: inherit; pointer-events: auto; }
+    .credit a:focus-visible { outline: 2px solid #e3c27a; outline-offset: 2px; }
+  </style>
+  <!-- Cross-origin isolation, which Rive's threaded runtime needs for the file's audio (the tick and the bell):
+       GitHub Pages can't send the COOP / COEP headers, so our own service worker (sw.js) adds them. The first visit
+       registers it and reloads once, so the page comes back through it. Still not isolated after that: the sky runs
+       silent (the console says why). ?coi=0 runs it that way on purpose; ?mute=1 starts with the sound switch off.
+       (The same pattern as earth-invasion/index.html.) -->
+  <script>
+    window.skyIsolation = (function () {
+      var TRIED = 'skyGift.coiReload'; // sessionStorage: the reload was tried (no reload loops)
+      var hold = new Promise(function () {});
+      function session(key, value) {
+        try {
+          if (value === undefined) return window.sessionStorage.getItem(key);
+          if (value === null) window.sessionStorage.removeItem(key); else window.sessionStorage.setItem(key, value);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      }
+      function reloadOnce() {
+        if (session(TRIED) || !session(TRIED, '1')) return false;
+        window.location.reload();
+        return true;
+      }
+      var sw = navigator.serviceWorker;
+      if (new URLSearchParams(window.location.search).get('coi') === '0') {
+        if (!sw) return Promise.resolve('not isolated (?coi=0)');
+        return sw.getRegistrations().then(function (regs) {
+          return Promise.all(regs.map(function (r) { return r.unregister(); }));
+        }).then(function () {
+          if (sw.controller && reloadOnce()) return hold;
+          session(TRIED, null);
+          return 'not isolated (?coi=0)';
+        });
+      }
+      if (window.crossOriginIsolated) {
+        session(TRIED, null);
+        return Promise.resolve('isolated');
+      }
+      if (!sw || !window.isSecureContext) return Promise.resolve('not isolated: no service workers in this browser window');
+      return sw.register('sw.js', { scope: './' }).then(function () {
+        return sw.ready;
+      }).then(function () {
+        if (reloadOnce()) return hold;
+        return 'not isolated: still not isolated after reloading through the service worker';
+      }).catch(function (e) {
+        return 'not isolated: the service worker didn’t register (' + e + ')';
+      });
+    })();
+  </script>
+</head>
+<body>
+  <canvas id="c" aria-label="A wax-sealed gift. Tap the seal to open it, then turn the ring to wind time, or tap a star."></canvas>
+  <p class="credit">Stars: <a href="https://github.com/astronexus/HYG-Database">HYG Database</a> (CC BY-SA 4.0).
+    Constellation lines: <a href="https://github.com/ofrohn/d3-celestial">d3-celestial</a> (BSD-3-Clause).</p>
+  <!-- Pinned. The threaded build runs the file's AnimaScript audio on an isolated page and falls back to the build
+       without threads elsewhere. 2.50.0+ also draws image paints. -->
+  <script src="https://cdn.jsdelivr.net/npm/@rive-app/webgl2-threads@2.50.0/rive.js" crossorigin="anonymous"></script>
+  <script src="sky-link.js?v=1"></script>
+  <script>
+    var sky = SkyLink.decode(location.hash);
+    var params = new URLSearchParams(location.search);
+    var canvas = document.getElementById('c');
+    // The page's clock for the rewind: days since 2000-01-01 12:00 UT (J2000.0).
+    function daysSinceJ2000(ms) { return ms / 86400000 + 2440587.5 - 2451545.0; }
+    var r = null;
+    window.skyIsolation.then(function (state) {
+      console.log('sky: ' + state);
+      r = new rive.Rive({
+        src: 'sky.riv?v=1',
+        canvas: canvas,
+        artboard: 'Sky Gift',
+        stateMachine: 'Gift',
+        autoplay: true,
+        autoBind: true,
+        // A 400 x 820 card; the endpaper runs on past its edges on wide screens.
+        layout: new rive.Layout({ fit: rive.Fit.Contain, alignment: rive.Alignment.Center }),
+        onLoad: function () {
+          r.resizeDrawingSurfaceToCanvas();
+          var vmi = r.viewModelInstance;
+          if (!vmi) { console.warn('sky: no view model instance'); return; }
+          vmi.number('now').value = daysSinceJ2000(Date.now());
+          if (params.get('mute') === '1') vmi.boolean('sound').value = false;
+          if (sky.name) vmi.string('name').value = sky.name;
+          if (sky.complete) {
+            var w = sky.when;
+            vmi.number('year').value = w.year;
+            vmi.number('month').value = w.month;
+            vmi.number('day').value = w.day;
+            vmi.number('hour').value = w.hour + w.minute / 60;
+            vmi.number('tz').value = sky.tz;
+            vmi.number('lat').value = sky.lat;
+            vmi.number('lon').value = sky.lon;
+            vmi.string('place').value = sky.place;
+          }
+          if (sky.name) document.title = 'The sky ' + sky.name + ' arrived under';
+          // For checks from the console.
+          rive.RuntimeLoader.awaitInstance().then(function (rt) {
+            window.skyAudio = function () {
+              var sc = rt.riveScripting;
+              return { isolated: self.crossOriginIsolated, refusal: sc && sc.audioRefusal ? sc.audioRefusal() : 'n/a',
+                state: sc && sc.audioState ? sc.audioState() : 'n/a' };
+            };
+          });
+          window.skyLoaded = { complete: sky.complete, sound: vmi.boolean('sound').value, name: vmi.string('name').value };
+          console.log('sky: loaded', JSON.stringify(window.skyLoaded));
+        },
+        onLoadError: function (e) { console.error('sky: load error', e); }
+      });
+    });
+    window.addEventListener('resize', function () { if (r) r.resizeDrawingSurfaceToCanvas(); });
+    window.addEventListener('hashchange', function () { location.reload(); });
+  </script>
+</body>
+</html>

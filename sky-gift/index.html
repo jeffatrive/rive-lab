@@ -86,19 +86,22 @@
     window.skyIsolation.then(function (state) {
       console.log('sky: ' + state);
       r = new rive.Rive({
-        src: 'sky.riv?v=1',
+        src: 'sky.riv?v=2',
         canvas: canvas,
         artboard: 'Sky Gift',
         stateMachine: 'Gift',
         autoplay: true,
         autoBind: true,
-        // A 400 x 820 card; the endpaper runs on past its edges on wide screens.
+        // A 400 x 820 card in a tall window; a landscape window gets the wide
+        // layout (`wide`: the artboard widens to 1400 x 820). The endpaper
+        // runs on past the edges either way.
         layout: new rive.Layout({ fit: rive.Fit.Contain, alignment: rive.Alignment.Center }),
         onLoad: function () {
           r.resizeDrawingSurfaceToCanvas();
           var vmi = r.viewModelInstance;
           if (!vmi) { console.warn('sky: no view model instance'); return; }
           vmi.number('now').value = daysSinceJ2000(Date.now());
+          setWide();
           if (params.get('mute') === '1') vmi.boolean('sound').value = false;
           if (sky.name) vmi.string('name').value = sky.name;
           if (sky.complete) {
@@ -127,7 +130,14 @@
         onLoadError: function (e) { console.error('sky: load error', e); }
       });
     });
-    window.addEventListener('resize', function () { if (r) r.resizeDrawingSurfaceToCanvas(); });
+    // Wide when the window is clearly landscape; the file blends between the
+    // two layouts when this changes (a resize, a phone turned sideways).
+    function setWide() {
+      var vmi = r && r.viewModelInstance;
+      var wide = vmi && vmi.boolean('wide');
+      if (wide) wide.value = window.innerWidth > window.innerHeight * 1.1;
+    }
+    window.addEventListener('resize', function () { if (r) { r.resizeDrawingSurfaceToCanvas(); setWide(); } });
     window.addEventListener('hashchange', function () { location.reload(); });
   </script>
 </body>

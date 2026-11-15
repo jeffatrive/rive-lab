@@ -1,0 +1,7 @@
+name: live-dictation
+main: main
+output:
+  dir: build
+logs:
+  file: build/rive.log
+  problems: build/problems.log

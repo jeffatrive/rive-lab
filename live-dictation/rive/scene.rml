@@ -1,0 +1,8 @@
+<Rive version="1" kind="fragment">
+  <Artboard styleId="0:5" width="1280" height="720" name="main" id="0:2">
+    <LayoutComponentStyle name="Artboard Style" id="0:5"/>
+    <Fill name="Background">
+      <SolidColor colorValue="FF0F1012" name="Color"/>
+    </Fill>
+  </Artboard>
+</Rive>
